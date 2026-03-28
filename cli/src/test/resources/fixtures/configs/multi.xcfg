@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<chibiforgeConfiguration
+    xmlns="http://chibiforge/schema/config"
+    toolVersion="1.0.0"
+    schemaVersion="1.0">
+
+  <targets>
+    <target id="default"/>
+    <target id="debug"/>
+    <target id="release"/>
+  </targets>
+
+  <components>
+    <component id="org.chibios.hal.stm32f4xx">
+      <initialization_settings>
+        <vdd>300</vdd>
+      </initialization_settings>
+    </component>
+    <component id="org.chibios.board.stm32f4xx">
+      <board_settings>
+        <board_name>MY_BOARD</board_name>
+      </board_settings>
+    </component>
+  </components>
+</chibiforgeConfiguration>

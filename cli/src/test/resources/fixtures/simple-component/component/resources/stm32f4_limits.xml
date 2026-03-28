@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<stm32f4_limits>
+  <adc max_channels="16" max_resolution="12"/>
+  <dma max_streams="8"/>
+</stm32f4_limits>

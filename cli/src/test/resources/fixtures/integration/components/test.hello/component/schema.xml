@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component
+    xmlns="http://chibiforge/schema/component"
+    id="test.hello"
+    name="Hello Component"
+    version="1.0.0"
+    hidden="false"
+    is_platform="false">
+
+  <description>A test component for integration testing.</description>
+
+  <resources>
+    <resource id="test_limits" file="resources/test_limits.xml"/>
+  </resources>
+
+  <categories>
+    <category id="Test"/>
+  </categories>
+
+  <requires/>
+
+  <provides>
+    <feature id="features.test.hello"/>
+  </provides>
+
+  <sections>
+    <section name="settings" expanded="true">
+      <description>Test settings.</description>
+      <property name="greeting" type="string" brief="Greeting message"
+                required="true" editable="true" default="Hello"/>
+      <property name="count" type="int" brief="Repeat count"
+                required="true" editable="true" default="3"
+                int_min="1" int_max="100"/>
+      <property name="enabled" type="bool" brief="Enable feature"
+                required="true" editable="true" default="true"/>
+    </section>
+  </sections>
+</component>

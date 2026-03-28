@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<chibiforgeConfiguration
+    xmlns="http://chibiforge/schema/config"
+    toolVersion="1.0.0"
+    schemaVersion="1.0">
+
+  <targets>
+    <target id="default"/>
+  </targets>
+
+  <components>
+    <component id="org.chibios.hal.stm32f4xx">
+      <initialization_settings>
+        <do_not_init>false</do_not_init>
+        <vdd>300</vdd>
+        <system_clock_source>PLL</system_clock_source>
+      </initialization_settings>
+    </component>
+  </components>
+</chibiforgeConfiguration>

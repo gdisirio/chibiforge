@@ -1,0 +1,8 @@
+{
+  "interfaces": {
+    "items": [
+      {"name": "MII"},
+      {"name": "RMII"}
+    ]
+  }
+}

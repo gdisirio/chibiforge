@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component
+    xmlns="http://chibiforge/schema/component"
+    id="org.chibios.hal.stm32f4xx"
+    name="HAL STM32F4xx"
+    version="1.0.0"
+    hidden="true"
+    is_platform="false">
+
+  <description>HAL configuration for STM32F4xx devices.</description>
+
+  <resources>
+    <resource id="stm32f4_limits"
+              file="resources/stm32f4_limits.xml"/>
+    <resource id="phy_catalog"
+              file="resources/phy_catalog.json"/>
+  </resources>
+
+  <categories>
+    <category id="HAL/Platforms/STM32F4xx"/>
+    <category id="RTOS"/>
+  </categories>
+
+  <requires>
+    <feature id="features.hal.core"/>
+  </requires>
+
+  <provides>
+    <feature id="features.hal.platform.stm32f4xx" exclusive="true"/>
+  </provides>
+
+  <image file="rsc/block_diagram.png" align="center">
+    <text>Block diagram of the peripheral</text>
+  </image>
+
+  <sections>
+    <section name="Initialization Settings" expanded="true">
+      <description>Core initialization parameters.</description>
+      <property name="do_not_init" type="bool" brief="Skip initialization"
+                required="true" editable="true" default="false"/>
+      <property name="vdd" type="int" brief="Supply voltage in millivolts"
+                required="true" editable="true" default="300"
+                int_min="180" int_max="360"/>
+      <layout columns="2" align="left">
+        <property name="hse_frequency" type="int" brief="HSE frequency"
+                  required="true" editable="true" default="8000000"/>
+        <property name="lse_frequency" type="int" brief="LSE frequency"
+                  required="true" editable="true" default="32768"/>
+        <image file="rsc/clock_tree.png" align="center">
+          <text>Clock tree overview</text>
+        </image>
+        <empty/>
+      </layout>
+      <property name="system_clock_source" type="enum" brief="System clock source"
+                required="true" editable="true" default="PLL"
+                enum_of="PLL,HSI,HSE"/>
+      <property name="board_name" type="string" brief="Board name"
+                required="true" editable="true" default="STM32F4_BOARD"
+                string_regex="[A-Za-z0-9_]+"/>
+      <property name="notes" type="text" brief="Configuration notes"
+                required="false" editable="true" default=""
+                text_maxsize="4096"/>
+    </section>
+    <section name="Pin Settings" expanded="false">
+      <description>GPIO pin configuration.</description>
+      <property name="pins" type="list" brief="Pin configuration list"
+                required="false" editable="true" default=""
+                list_columns="name:150,mode:100,speed">
+        <sections>
+          <section name="Pin Details" expanded="true">
+            <description>Individual pin settings.</description>
+            <property name="name" type="string" brief="Pin name"
+                      required="true" editable="true" default="PA0"/>
+            <property name="mode" type="enum" brief="Pin mode"
+                      required="true" editable="true" default="INPUT"
+                      enum_of="INPUT,OUTPUT,ALTERNATE,ANALOG"/>
+            <property name="speed" type="enum" brief="Pin speed"
+                      required="true" editable="true" default="LOW"
+                      enum_of="LOW,MEDIUM,HIGH,VERY_HIGH"/>
+          </section>
+        </sections>
+      </property>
+    </section>
+  </sections>
+
+</component>
