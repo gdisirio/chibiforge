@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<chibiforgeConfiguration
+    xmlns="http://chibiforge/schema/config"
+    toolVersion="1.0.0"
+    schemaVersion="1.0">
+
+  <targets>
+    <target id="default"/>
+    <target id="debug"/>
+    <target id="release"/>
+  </targets>
+
+  <components>
+    <component id="test.hello">
+      <settings>
+        <!-- Single-target: same value for all targets -->
+        <greeting>Hello</greeting>
+
+        <!-- Multi-target: different values per target -->
+        <count default="3">
+          <targetValue target="debug">10</targetValue>
+          <targetValue target="release">1</targetValue>
+        </count>
+
+        <!-- Multi-target: only debug overridden, release falls back to default -->
+        <enabled default="true">
+          <targetValue target="debug">false</targetValue>
+        </enabled>
+      </settings>
+    </component>
+  </components>
+</chibiforgeConfiguration>

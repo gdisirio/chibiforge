@@ -159,4 +159,69 @@ class GeneratorEngineIntegrationTest {
         // But actions are recorded
         assertThat(report.getActions()).isNotEmpty();
     }
+
+    private static final String MULTITARGET_XCFG = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <chibiforgeConfiguration
+                xmlns="http://chibiforge/schema/config"
+                toolVersion="1.0.0"
+                schemaVersion="1.0">
+              <targets>
+                <target id="default"/>
+                <target id="debug"/>
+                <target id="release"/>
+              </targets>
+              <components>
+                <component id="test.hello">
+                  <settings>
+                    <greeting>Hello</greeting>
+                    <count default="5">
+                      <targetValue target="debug">42</targetValue>
+                      <targetValue target="release">1</targetValue>
+                    </count>
+                    <enabled default="true">
+                      <targetValue target="debug">false</targetValue>
+                    </enabled>
+                  </settings>
+                </component>
+              </components>
+            </chibiforgeConfiguration>
+            """;
+
+    @Test
+    void multiTarget_defaultProducesDefaultValues(@TempDir Path configRoot) throws Exception {
+        Files.writeString(configRoot.resolve("chibiforge.xcfg"), MULTITARGET_XCFG);
+
+        GenerationContext ctx = new GenerationContext(configRoot, "default", false, false);
+        new GeneratorEngine().generate(ctx, componentsRoot);
+
+        String content = Files.readString(configRoot.resolve("generated/config.h"));
+        assertThat(content).contains("#define COUNT 5");
+        assertThat(content).contains("#define ENABLED true");
+    }
+
+    @Test
+    void multiTarget_debugProducesDebugValues(@TempDir Path configRoot) throws Exception {
+        Files.writeString(configRoot.resolve("chibiforge.xcfg"), MULTITARGET_XCFG);
+
+        GenerationContext ctx = new GenerationContext(configRoot, "debug", false, false);
+        new GeneratorEngine().generate(ctx, componentsRoot);
+
+        String content = Files.readString(configRoot.resolve("generated/config.h"));
+        assertThat(content).contains("#define COUNT 42");
+        assertThat(content).contains("#define ENABLED false");
+        assertThat(content).contains("#define TARGET \"debug\"");
+    }
+
+    @Test
+    void multiTarget_releaseUsesOverrideAndFallback(@TempDir Path configRoot) throws Exception {
+        Files.writeString(configRoot.resolve("chibiforge.xcfg"), MULTITARGET_XCFG);
+
+        GenerationContext ctx = new GenerationContext(configRoot, "release", false, false);
+        new GeneratorEngine().generate(ctx, componentsRoot);
+
+        String content = Files.readString(configRoot.resolve("generated/config.h"));
+        assertThat(content).contains("#define COUNT 1");      // release override
+        assertThat(content).contains("#define ENABLED true");  // no release override, falls back to default
+    }
 }

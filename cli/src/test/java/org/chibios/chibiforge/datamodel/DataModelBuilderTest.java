@@ -99,4 +99,58 @@ class DataModelBuilderTest {
         template.process(dataModel, out);
         assertThat(out.toString().trim()).isEqualTo("default");
     }
+
+    // --- Multi-target tests ---
+
+    private static Map<String, Object> buildMultiTargetModel(String target) throws Exception {
+        ConfigLoader loader = new ConfigLoader();
+        ChibiForgeConfiguration config;
+        try (InputStream is = DataModelBuilderTest.class.getResourceAsStream("/fixtures/configs/multitarget.xcfg")) {
+            config = loader.load(is);
+        }
+        ComponentConfigEntry entry = config.getComponents().get(0);
+        Map<String, ComponentConfigEntry> allConfigs = new LinkedHashMap<>();
+        allConfigs.put(entry.getComponentId(), entry);
+
+        return new DataModelBuilder().buildDataModel(
+                entry.getComponentId(), entry, allConfigs,
+                Map.of(), Path.of("/tmp"), target);
+    }
+
+    private static String eval(Map<String, Object> model, String expr) throws Exception {
+        Template t = new Template("test", "${" + expr + "}", fmConfig);
+        StringWriter out = new StringWriter();
+        t.process(model, out);
+        return out.toString().trim();
+    }
+
+    @Test
+    void multiTarget_defaultTarget_usesDefaultValues() throws Exception {
+        Map<String, Object> model = buildMultiTargetModel("default");
+        assertThat(eval(model, "doc.settings.greeting")).isEqualTo("Hello");
+        assertThat(eval(model, "doc.settings.count")).isEqualTo("3");
+        assertThat(eval(model, "doc.settings.enabled")).isEqualTo("true");
+    }
+
+    @Test
+    void multiTarget_debugTarget_usesOverrides() throws Exception {
+        Map<String, Object> model = buildMultiTargetModel("debug");
+        assertThat(eval(model, "doc.settings.greeting")).isEqualTo("Hello"); // single-target, unchanged
+        assertThat(eval(model, "doc.settings.count")).isEqualTo("10");       // debug override
+        assertThat(eval(model, "doc.settings.enabled")).isEqualTo("false");  // debug override
+    }
+
+    @Test
+    void multiTarget_releaseTarget_usesOverrideOrFallback() throws Exception {
+        Map<String, Object> model = buildMultiTargetModel("release");
+        assertThat(eval(model, "doc.settings.greeting")).isEqualTo("Hello"); // single-target
+        assertThat(eval(model, "doc.settings.count")).isEqualTo("1");        // release override
+        assertThat(eval(model, "doc.settings.enabled")).isEqualTo("true");   // no release override, falls back to default
+    }
+
+    @Test
+    void multiTarget_componentsAlsoResolved() throws Exception {
+        Map<String, Object> model = buildMultiTargetModel("debug");
+        assertThat(eval(model, "components.test_hello.settings.count")).isEqualTo("10");
+    }
 }

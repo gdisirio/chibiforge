@@ -42,11 +42,11 @@ public class DataModelBuilder {
 
         Map<String, Object> dataModel = new LinkedHashMap<>();
 
-        // doc: current component's config
-        dataModel.put("doc", buildDoc(configEntry));
+        // doc: current component's config (multi-target properties resolved)
+        dataModel.put("doc", buildDoc(configEntry, target));
 
-        // components: all configs keyed by normalized ID
-        dataModel.put("components", buildComponents(allConfigs));
+        // components: all configs keyed by normalized ID (multi-target resolved)
+        dataModel.put("components", buildComponents(allConfigs, target));
 
         // configuration: metadata
         dataModel.put("configuration", buildConfiguration(configRoot, target));
@@ -65,20 +65,18 @@ public class DataModelBuilder {
         return dataModel;
     }
 
-    private Object buildDoc(ComponentConfigEntry configEntry) throws Exception {
+    private Object buildDoc(ComponentConfigEntry configEntry, String target) throws Exception {
         Document doc = createDocument();
         Element docRoot = doc.createElement("doc");
         doc.appendChild(docRoot);
 
-        // Import all children, stripping namespaces for clean FreeMarker access
         Element sourceEl = configEntry.getConfigElement();
-        copyChildrenStrippingNamespace(sourceEl, docRoot, doc);
+        copyChildrenResolvingTargets(sourceEl, docRoot, doc, target);
 
-        // Wrap the root element directly so template access is doc.section.property
         return NodeModel.wrap(docRoot);
     }
 
-    private Object buildComponents(Map<String, ComponentConfigEntry> allConfigs) throws Exception {
+    private Object buildComponents(Map<String, ComponentConfigEntry> allConfigs, String target) throws Exception {
         Document doc = createDocument();
         Element componentsRoot = doc.createElement("components");
         doc.appendChild(componentsRoot);
@@ -89,7 +87,7 @@ public class DataModelBuilder {
             componentsRoot.appendChild(compEl);
 
             Element sourceEl = entry.getValue().getConfigElement();
-            copyChildrenStrippingNamespace(sourceEl, compEl, doc);
+            copyChildrenResolvingTargets(sourceEl, compEl, doc, target);
         }
 
         return NodeModel.wrap(componentsRoot);
@@ -116,10 +114,16 @@ public class DataModelBuilder {
     }
 
     /**
-     * Recursively copies child nodes from source to target, stripping XML namespaces.
-     * This ensures FreeMarker can access elements by simple names (e.g., doc.section.property).
+     * Recursively copies child nodes from source to target, stripping XML namespaces
+     * and resolving multi-target properties for the active target.
+     *
+     * Multi-target property format:
+     * {@code <vdd default="300"><targetValue target="debug">330</targetValue></vdd>}
+     *
+     * Resolution: if an element has a "default" attribute and {@code <targetValue>} children,
+     * it is a multi-target property. The resolved value replaces the entire element content.
      */
-    private void copyChildrenStrippingNamespace(Element source, Element target, Document doc) {
+    private void copyChildrenResolvingTargets(Element source, Element target, Document doc, String activeTarget) {
         NodeList children = source.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node child = children.item(i);
@@ -127,23 +131,66 @@ public class DataModelBuilder {
                 String localName = srcEl.getLocalName() != null ? srcEl.getLocalName() : srcEl.getTagName();
                 Element newEl = doc.createElement(localName);
 
-                // Copy attributes (without namespace)
-                NamedNodeMap attrs = srcEl.getAttributes();
-                for (int j = 0; j < attrs.getLength(); j++) {
-                    Node attr = attrs.item(j);
-                    String attrName = attr.getLocalName() != null ? attr.getLocalName() : attr.getNodeName();
-                    // Skip xmlns attributes
-                    if (!"xmlns".equals(attrName) && !attr.getNodeName().startsWith("xmlns:")) {
-                        newEl.setAttribute(attrName, attr.getNodeValue());
+                // Check if this is a multi-target property
+                String resolvedValue = resolveMultiTargetValue(srcEl, activeTarget);
+                if (resolvedValue != null) {
+                    // Multi-target: emit as plain text element with resolved value
+                    newEl.setTextContent(resolvedValue);
+                } else {
+                    // Regular element: copy attributes and recurse into children
+                    NamedNodeMap attrs = srcEl.getAttributes();
+                    for (int j = 0; j < attrs.getLength(); j++) {
+                        Node attr = attrs.item(j);
+                        String attrName = attr.getLocalName() != null ? attr.getLocalName() : attr.getNodeName();
+                        if (!"xmlns".equals(attrName) && !attr.getNodeName().startsWith("xmlns:")) {
+                            newEl.setAttribute(attrName, attr.getNodeValue());
+                        }
                     }
+                    copyChildrenResolvingTargets(srcEl, newEl, doc, activeTarget);
                 }
 
-                copyChildrenStrippingNamespace(srcEl, newEl, doc);
                 target.appendChild(newEl);
             } else if (child instanceof Text) {
                 target.appendChild(doc.importNode(child, true));
             }
         }
+    }
+
+    /**
+     * If the element is a multi-target property, resolve the value for the active target.
+     * Returns null if the element is not a multi-target property.
+     *
+     * A multi-target property has a "default" attribute and at least one {@code <targetValue>} child.
+     */
+    private String resolveMultiTargetValue(Element el, String activeTarget) {
+        if (!el.hasAttribute("default")) {
+            return null;
+        }
+
+        // Look for <targetValue> children
+        boolean hasTargetValues = false;
+        String matchedValue = null;
+
+        NodeList children = el.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            if (children.item(i) instanceof Element child) {
+                String childName = child.getLocalName() != null ? child.getLocalName() : child.getTagName();
+                if ("targetValue".equals(childName)) {
+                    hasTargetValues = true;
+                    String targetAttr = child.getAttribute("target");
+                    if (activeTarget.equals(targetAttr)) {
+                        matchedValue = child.getTextContent().trim();
+                    }
+                }
+            }
+        }
+
+        if (!hasTargetValues) {
+            return null; // Has "default" attr but no <targetValue> children — not multi-target
+        }
+
+        // Multi-target: return matched value or fall back to default
+        return matchedValue != null ? matchedValue : el.getAttribute("default");
     }
 
     private Document createDocument() throws Exception {
