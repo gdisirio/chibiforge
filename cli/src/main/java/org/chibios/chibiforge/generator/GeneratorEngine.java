@@ -64,7 +64,7 @@ public class GeneratorEngine {
         GenerationReport report = new GenerationReport();
 
         // 1. Load configuration
-        Path configPath = ctx.getConfigRoot().resolve("chibiforge.xcfg");
+        Path configPath = ctx.getConfigFile();
         log.info("Loading configuration: {}", configPath);
         ChibiForgeConfiguration config;
         try {

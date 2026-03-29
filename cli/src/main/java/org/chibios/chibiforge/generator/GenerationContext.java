@@ -24,13 +24,15 @@ import java.nio.file.Path;
  * Runtime context for a generation run.
  */
 public class GenerationContext {
+    private final Path configFile;
     private final Path configRoot;
     private final Path generatedRoot;
     private final String target;
     private final boolean dryRun;
     private final boolean verbose;
 
-    public GenerationContext(Path configRoot, String target, boolean dryRun, boolean verbose) {
+    public GenerationContext(Path configFile, Path configRoot, String target, boolean dryRun, boolean verbose) {
+        this.configFile = configFile;
         this.configRoot = configRoot;
         this.generatedRoot = configRoot.resolve("generated");
         this.target = target;
@@ -38,6 +40,7 @@ public class GenerationContext {
         this.verbose = verbose;
     }
 
+    public Path getConfigFile() { return configFile; }
     public Path getConfigRoot() { return configRoot; }
     public Path getGeneratedRoot() { return generatedRoot; }
     public String getTarget() { return target; }

@@ -58,7 +58,7 @@ class RefDefaultIntegrationTest {
                 </chibiforgeConfiguration>
                 """);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "default", false, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", false, false);
         new GeneratorEngine().generate(ctx, componentsRoot);
 
         String content = Files.readString(configRoot.resolve("generated/refout.h"));
@@ -91,7 +91,7 @@ class RefDefaultIntegrationTest {
                 </chibiforgeConfiguration>
                 """);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "default", false, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", false, false);
         new GeneratorEngine().generate(ctx, componentsRoot);
 
         String content = Files.readString(configRoot.resolve("generated/refout.h"));
@@ -119,7 +119,7 @@ class RefDefaultIntegrationTest {
                 </chibiforgeConfiguration>
                 """);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "default", false, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", false, false);
         new GeneratorEngine().generate(ctx, componentsRoot);
 
         String content = Files.readString(configRoot.resolve("generated/refout.h"));

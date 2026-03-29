@@ -44,7 +44,7 @@ class StaticPayloadCopierTest {
 
     @Test
     void copiesSourceToGenerated(@TempDir Path tempDir) throws Exception {
-        GenerationContext ctx = new GenerationContext(tempDir, "default", false, false);
+        GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", false, false);
         GenerationReport report = new GenerationReport();
 
         copier.copyPayloads("org.chibios.hal.stm32f4xx", content, ctx, report);
@@ -56,7 +56,7 @@ class StaticPayloadCopierTest {
 
     @Test
     void copiesSourceRootWa(@TempDir Path tempDir) throws Exception {
-        GenerationContext ctx = new GenerationContext(tempDir, "default", false, false);
+        GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", false, false);
         GenerationReport report = new GenerationReport();
 
         copier.copyPayloads("org.chibios.hal.stm32f4xx", content, ctx, report);
@@ -68,7 +68,7 @@ class StaticPayloadCopierTest {
 
     @Test
     void copiesSourceRootWo(@TempDir Path tempDir) throws Exception {
-        GenerationContext ctx = new GenerationContext(tempDir, "default", false, false);
+        GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", false, false);
         GenerationReport report = new GenerationReport();
 
         copier.copyPayloads("org.chibios.hal.stm32f4xx", content, ctx, report);
@@ -84,7 +84,7 @@ class StaticPayloadCopierTest {
         Path existing = tempDir.resolve("once.txt");
         Files.writeString(existing, "user modified");
 
-        GenerationContext ctx = new GenerationContext(tempDir, "default", false, false);
+        GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", false, false);
         GenerationReport report = new GenerationReport();
 
         copier.copyPayloads("org.chibios.hal.stm32f4xx", content, ctx, report);
@@ -95,7 +95,7 @@ class StaticPayloadCopierTest {
 
     @Test
     void dryRunDoesNotWrite(@TempDir Path tempDir) throws Exception {
-        GenerationContext ctx = new GenerationContext(tempDir, "default", true, false);
+        GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", true, false);
         GenerationReport report = new GenerationReport();
 
         copier.copyPayloads("org.chibios.hal.stm32f4xx", content, ctx, report);

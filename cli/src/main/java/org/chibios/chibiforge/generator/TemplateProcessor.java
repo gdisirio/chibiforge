@@ -118,9 +118,12 @@ public class TemplateProcessor {
                     Engine eng, int event, File src, int pMode,
                     Throwable error, Object param) {
                 if (event == ProgressListener.EVENT_END_FILE_PROCESSING && src != null) {
-                    String srcRel = "cfg/" + cfgDir.relativize(src.toPath());
-                    String outputRel = stripTemplateExtension(
-                            cfgDir.relativize(src.toPath()).toString());
+                    String cfgPrefix = cfgDir.toAbsolutePath().toString();
+                    String srcAbs = src.getAbsolutePath();
+                    String relInCfg = srcAbs.startsWith(cfgPrefix)
+                            ? srcAbs.substring(cfgPrefix.length() + 1) : src.getName();
+                    String srcRel = "cfg/" + relInCfg;
+                    String outputRel = stripTemplateExtension(relInCfg);
                     Path outputPath = ctx.getGeneratedRoot().resolve(outputRel);
                     log.debug("Processed template {} -> {}", srcRel, outputPath);
                     report.addAction(new GenerationAction(

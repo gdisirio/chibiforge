@@ -119,7 +119,7 @@ public class GenerateCommand implements Callable<Integer> {
                 System.out.println("Dry run:            " + dryRun);
             }
 
-            GenerationContext ctx = new GenerationContext(configRoot, target, dryRun, verbose);
+            GenerationContext ctx = new GenerationContext(resolvedConfig, configRoot, target, dryRun, verbose);
             GeneratorEngine engine = new GeneratorEngine();
             GenerationReport report = engine.generate(ctx, resolvedComponents, resolvedPlugins);
 

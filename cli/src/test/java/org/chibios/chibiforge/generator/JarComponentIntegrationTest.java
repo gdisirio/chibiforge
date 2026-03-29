@@ -120,7 +120,7 @@ class JarComponentIntegrationTest {
                 </chibiforgeConfiguration>
                 """);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "default", false, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", false, false);
         GeneratorEngine engine = new GeneratorEngine();
         GenerationReport report = engine.generate(ctx, null, pluginsRoot);
 
@@ -163,7 +163,7 @@ class JarComponentIntegrationTest {
                 </chibiforgeConfiguration>
                 """);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "default", false, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", false, false);
         GeneratorEngine engine = new GeneratorEngine();
 
         // First run
@@ -194,7 +194,7 @@ class JarComponentIntegrationTest {
                 </chibiforgeConfiguration>
                 """);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "default", true, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", true, false);
         GenerationReport report = new GeneratorEngine().generate(ctx, null, pluginsRoot);
 
         assertThat(configRoot.resolve("generated")).doesNotExist();
@@ -253,7 +253,7 @@ class JarComponentIntegrationTest {
                 </chibiforgeConfiguration>
                 """);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "default", false, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", false, false);
         GenerationReport report = new GeneratorEngine().generate(ctx, fsComponents, pluginsRoot);
 
         // Filesystem template should have been used, not JAR template

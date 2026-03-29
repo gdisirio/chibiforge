@@ -61,7 +61,7 @@ class TemplateProcessorTest {
                 Map.of(), tempDir, "default");
 
         // Process templates
-        GenerationContext ctx = new GenerationContext(tempDir, "default", false, false);
+        GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", false, false);
         GenerationReport report = new GenerationReport();
 
         TemplateProcessor processor = new TemplateProcessor();
@@ -98,7 +98,7 @@ class TemplateProcessorTest {
                 entry.getComponentId(), entry, allConfigs,
                 Map.of(), tempDir, "default");
 
-        GenerationContext ctx = new GenerationContext(tempDir, "default", true, false);
+        GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", true, false);
         GenerationReport report = new GenerationReport();
 
         TemplateProcessor processor = new TemplateProcessor();

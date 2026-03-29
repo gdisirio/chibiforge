@@ -62,7 +62,7 @@ class GeneratorEngineIntegrationTest {
                 </chibiforgeConfiguration>
                 """);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "default", false, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", false, false);
         GeneratorEngine engine = new GeneratorEngine();
         GenerationReport report = engine.generate(ctx, componentsRoot);
 
@@ -125,7 +125,7 @@ class GeneratorEngineIntegrationTest {
                 </chibiforgeConfiguration>
                 """);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "default", false, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", false, false);
         GeneratorEngine engine = new GeneratorEngine();
 
         // First run
@@ -165,7 +165,7 @@ class GeneratorEngineIntegrationTest {
                 </chibiforgeConfiguration>
                 """);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "default", true, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", true, false);
         GeneratorEngine engine = new GeneratorEngine();
         GenerationReport report = engine.generate(ctx, componentsRoot);
 
@@ -210,7 +210,7 @@ class GeneratorEngineIntegrationTest {
     void multiTarget_defaultProducesDefaultValues(@TempDir Path configRoot) throws Exception {
         Files.writeString(configRoot.resolve("chibiforge.xcfg"), MULTITARGET_XCFG);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "default", false, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", false, false);
         new GeneratorEngine().generate(ctx, componentsRoot);
 
         String content = Files.readString(configRoot.resolve("generated/config.h"));
@@ -222,7 +222,7 @@ class GeneratorEngineIntegrationTest {
     void multiTarget_debugProducesDebugValues(@TempDir Path configRoot) throws Exception {
         Files.writeString(configRoot.resolve("chibiforge.xcfg"), MULTITARGET_XCFG);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "debug", false, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "debug", false, false);
         new GeneratorEngine().generate(ctx, componentsRoot);
 
         String content = Files.readString(configRoot.resolve("generated/config.h"));
@@ -235,7 +235,7 @@ class GeneratorEngineIntegrationTest {
     void multiTarget_releaseUsesOverrideAndFallback(@TempDir Path configRoot) throws Exception {
         Files.writeString(configRoot.resolve("chibiforge.xcfg"), MULTITARGET_XCFG);
 
-        GenerationContext ctx = new GenerationContext(configRoot, "release", false, false);
+        GenerationContext ctx = new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "release", false, false);
         new GeneratorEngine().generate(ctx, componentsRoot);
 
         String content = Files.readString(configRoot.resolve("generated/config.h"));
