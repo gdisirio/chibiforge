@@ -182,4 +182,66 @@ class JarComponentIntegrationTest {
         assertThat(configRoot.resolve("generated")).doesNotExist();
         assertThat(report.getActions()).isNotEmpty();
     }
+
+    @Test
+    void filesystemOverridesJarForSameComponentId(@TempDir Path configRoot) throws Exception {
+        // Create a filesystem component with the SAME ID as the JAR component
+        // but different template output, proving filesystem wins
+        Path fsComponents = configRoot.resolve("components");
+        Path compDir = fsComponents.resolve("test.jarcomp/component");
+        Files.createDirectories(compDir.resolve("cfg"));
+
+        Files.writeString(compDir.resolve("schema.xml"), """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <component
+                    xmlns="http://chibiforge/schema/component"
+                    id="test.jarcomp"
+                    name="Filesystem Override"
+                    version="2.0.0"
+                    hidden="false"
+                    is_platform="false">
+                  <description>Filesystem override of JAR component.</description>
+                  <resources/>
+                  <categories><category id="Test"/></categories>
+                  <requires/>
+                  <provides/>
+                  <sections>
+                    <section name="settings" expanded="true">
+                      <description>Settings.</description>
+                      <property name="message" type="string" brief="Message"
+                                required="true" editable="true" default="default"/>
+                    </section>
+                  </sections>
+                </component>
+                """);
+
+        Files.writeString(compDir.resolve("cfg/jaroutput.h.ftl"), """
+                /* FILESYSTEM OVERRIDE */
+                #define FS_MESSAGE "${doc.settings.message}"
+                """);
+
+        Files.writeString(configRoot.resolve("chibiforge.xcfg"), """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <chibiforgeConfiguration
+                    xmlns="http://chibiforge/schema/config"
+                    toolVersion="1.0.0"
+                    schemaVersion="1.0">
+                  <targets><target id="default"/></targets>
+                  <components>
+                    <component id="test.jarcomp">
+                      <settings><message>overridden</message></settings>
+                    </component>
+                  </components>
+                </chibiforgeConfiguration>
+                """);
+
+        GenerationContext ctx = new GenerationContext(configRoot, "default", false, false);
+        GenerationReport report = new GeneratorEngine().generate(ctx, fsComponents, pluginsRoot);
+
+        // Filesystem template should have been used, not JAR template
+        String content = Files.readString(configRoot.resolve("generated/jaroutput.h"));
+        assertThat(content).contains("FILESYSTEM OVERRIDE");
+        assertThat(content).contains("FS_MESSAGE");
+        assertThat(content).doesNotContain("JAR_MESSAGE");
+    }
 }
