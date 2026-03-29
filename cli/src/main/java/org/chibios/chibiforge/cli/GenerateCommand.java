@@ -18,6 +18,7 @@
 
 package org.chibios.chibiforge.cli;
 
+import org.chibios.chibiforge.ChibiForgeException;
 import org.chibios.chibiforge.generator.GenerationAction;
 import org.chibios.chibiforge.generator.GenerationContext;
 import org.chibios.chibiforge.generator.GenerationReport;
@@ -122,12 +123,14 @@ public class GenerateCommand implements Callable<Integer> {
             GeneratorEngine engine = new GeneratorEngine();
             GenerationReport report = engine.generate(ctx, resolvedComponents, resolvedPlugins);
 
+            // Warnings to stderr
+            for (String warning : report.getWarnings()) {
+                System.err.println("WARNING: " + warning);
+            }
+
             if (verbose) {
                 report.printSummary();
             } else {
-                for (String warning : report.getWarnings()) {
-                    System.out.println("WARNING: " + warning);
-                }
                 System.out.println("Generation complete: " +
                         report.countByType(GenerationAction.Type.COPY) + " copied, " +
                         report.countByType(GenerationAction.Type.SKIP) + " skipped, " +
@@ -135,10 +138,16 @@ public class GenerateCommand implements Callable<Integer> {
             }
             return 0;
 
-        } catch (Exception e) {
+        } catch (ChibiForgeException e) {
             System.err.println("Error: " + e.getMessage());
+            if (verbose && e.getCause() != null) {
+                e.getCause().printStackTrace(System.err);
+            }
+            return 1;
+        } catch (Exception e) {
+            System.err.println("Internal error: " + e.getMessage());
             if (verbose) {
-                e.printStackTrace();
+                e.printStackTrace(System.err);
             }
             return 1;
         }

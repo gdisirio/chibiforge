@@ -51,9 +51,6 @@ public class GenerationReport {
     }
 
     public void printSummary() {
-        for (String warning : warnings) {
-            System.out.println("WARNING: " + warning);
-        }
         for (GenerationAction action : actions) {
             System.out.println("  " + action);
         }

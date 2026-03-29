@@ -18,6 +18,7 @@
 
 package org.chibios.chibiforge.generator;
 
+import org.chibios.chibiforge.ChibiForgeException;
 import org.chibios.chibiforge.component.ComponentDefinition;
 import org.chibios.chibiforge.config.ChibiForgeConfiguration;
 import org.chibios.chibiforge.config.ComponentConfigEntry;
@@ -34,10 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Main generator pipeline orchestrator.
@@ -57,20 +55,32 @@ public class GeneratorEngine {
     private final StaticPayloadCopier staticCopier = new StaticPayloadCopier();
     private final TemplateProcessor templateProcessor = new TemplateProcessor();
 
-    public GenerationReport generate(GenerationContext ctx, Path componentsRoot) throws Exception {
+    public GenerationReport generate(GenerationContext ctx, Path componentsRoot) throws ChibiForgeException {
         return generate(ctx, componentsRoot, null);
     }
 
-    public GenerationReport generate(GenerationContext ctx, Path componentsRoot, Path pluginsRoot) throws Exception {
+    public GenerationReport generate(GenerationContext ctx, Path componentsRoot, Path pluginsRoot)
+            throws ChibiForgeException {
         GenerationReport report = new GenerationReport();
 
         // 1. Load configuration
         Path configPath = ctx.getConfigRoot().resolve("chibiforge.xcfg");
         log.info("Loading configuration: {}", configPath);
-        ChibiForgeConfiguration config = configLoader.load(configPath);
+        ChibiForgeConfiguration config;
+        try {
+            config = configLoader.load(configPath);
+        } catch (Exception e) {
+            throw new ChibiForgeException(
+                    "Failed to load configuration file '" + configPath + "': " + e.getMessage(), e);
+        }
 
         // 2. Resolve target
-        String target = targetResolver.resolve(config, ctx.getTarget());
+        String target;
+        try {
+            target = targetResolver.resolve(config, ctx.getTarget());
+        } catch (IllegalArgumentException e) {
+            throw new ChibiForgeException(e.getMessage(), e);
+        }
         log.info("Active target: {}", target);
 
         // 3. Build component registry
@@ -80,7 +90,13 @@ public class GeneratorEngine {
         if (pluginsRoot != null) {
             log.info("Scanning plugin JARs: {}", pluginsRoot);
         }
-        ComponentRegistry registry = ComponentRegistry.build(componentsRoot, pluginsRoot);
+        ComponentRegistry registry;
+        try {
+            registry = ComponentRegistry.build(componentsRoot, pluginsRoot);
+        } catch (Exception e) {
+            throw new ChibiForgeException(
+                    "Failed to scan component sources: " + e.getMessage(), e);
+        }
 
         // 4. Load component definitions
         Map<String, ComponentContainer> activeContainers = new LinkedHashMap<>();
@@ -88,8 +104,21 @@ public class GeneratorEngine {
 
         for (ComponentConfigEntry entry : config.getComponents()) {
             String compId = entry.getComponentId();
-            ComponentContainer container = registry.lookup(compId);
-            ComponentDefinition def = container.loadDefinition();
+            ComponentContainer container;
+            try {
+                container = registry.lookup(compId);
+            } catch (NoSuchElementException e) {
+                throw new ChibiForgeException(
+                        "Component '" + compId + "' referenced in configuration but not found. " +
+                        "Check --components/--plugins paths and verify the component is installed.", e);
+            }
+            ComponentDefinition def;
+            try {
+                def = container.loadDefinition();
+            } catch (Exception e) {
+                throw new ChibiForgeException(
+                        "Failed to load schema.xml for component '" + compId + "': " + e.getMessage(), e);
+            }
             activeContainers.put(compId, container);
             definitions.add(def);
             log.info("Loaded component: {} ({})", def.getName(), compId);
@@ -113,25 +142,53 @@ public class GeneratorEngine {
             String compId = entry.getComponentId();
             ComponentContainer container = activeContainers.get(compId);
             ComponentContent content = container.getComponentContent();
-            ComponentDefinition def = container.loadDefinition();
+            ComponentDefinition def;
+            try {
+                def = container.loadDefinition();
+            } catch (Exception e) {
+                throw new ChibiForgeException(
+                        "Failed to load definition for component '" + compId + "': " + e.getMessage(), e);
+            }
 
             log.info("Processing component: {}", compId);
 
             // Load resources
-            Map<String, Object> resources = resourceLoader.loadResources(def, content);
+            Map<String, Object> resources;
+            try {
+                resources = resourceLoader.loadResources(def, content);
+            } catch (Exception e) {
+                throw new ChibiForgeException(
+                        "Failed to load resources for component '" + compId + "': " + e.getMessage(), e);
+            }
 
             // Resolve @ref: defaults and fill in missing properties
             refResolver.applyDefaults(def, entry.getConfigElement(), resources);
 
             // Build data model
-            Map<String, Object> dataModel = dataModelBuilder.buildDataModel(
-                    compId, entry, allConfigs, resources, ctx.getConfigRoot(), target);
+            Map<String, Object> dataModel;
+            try {
+                dataModel = dataModelBuilder.buildDataModel(
+                        compId, entry, allConfigs, resources, ctx.getConfigRoot(), target);
+            } catch (Exception e) {
+                throw new ChibiForgeException(
+                        "Failed to build data model for component '" + compId + "': " + e.getMessage(), e);
+            }
 
             // Copy static payload
-            staticCopier.copyPayloads(compId, content, ctx, report);
+            try {
+                staticCopier.copyPayloads(compId, content, ctx, report);
+            } catch (Exception e) {
+                throw new ChibiForgeException(
+                        "Failed to copy static files for component '" + compId + "': " + e.getMessage(), e);
+            }
 
             // Process templates
-            templateProcessor.processTemplates(compId, content, dataModel, ctx, report);
+            try {
+                templateProcessor.processTemplates(compId, content, dataModel, ctx, report);
+            } catch (Exception e) {
+                throw new ChibiForgeException(
+                        "Failed to process templates for component '" + compId + "': " + e.getMessage(), e);
+            }
         }
 
         return report;
