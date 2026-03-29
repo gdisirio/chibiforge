@@ -38,6 +38,10 @@ public class GeneratorEngine {
     private final TemplateProcessor templateProcessor = new TemplateProcessor();
 
     public GenerationReport generate(GenerationContext ctx, Path componentsRoot) throws Exception {
+        return generate(ctx, componentsRoot, null);
+    }
+
+    public GenerationReport generate(GenerationContext ctx, Path componentsRoot, Path pluginsRoot) throws Exception {
         GenerationReport report = new GenerationReport();
 
         // 1. Load configuration
@@ -50,8 +54,13 @@ public class GeneratorEngine {
         log.info("Active target: {}", target);
 
         // 3. Build component registry
-        log.info("Scanning components: {}", componentsRoot);
-        ComponentRegistry registry = ComponentRegistry.fromFilesystem(componentsRoot);
+        if (componentsRoot != null) {
+            log.info("Scanning filesystem components: {}", componentsRoot);
+        }
+        if (pluginsRoot != null) {
+            log.info("Scanning plugin JARs: {}", pluginsRoot);
+        }
+        ComponentRegistry registry = ComponentRegistry.build(componentsRoot, pluginsRoot);
 
         // 4. Load component definitions
         Map<String, ComponentContainer> activeContainers = new LinkedHashMap<>();

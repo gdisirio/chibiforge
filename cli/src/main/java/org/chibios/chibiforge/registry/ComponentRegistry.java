@@ -2,6 +2,7 @@ package org.chibios.chibiforge.registry;
 
 import org.chibios.chibiforge.container.ComponentContainer;
 import org.chibios.chibiforge.container.FilesystemContainer;
+import org.chibios.chibiforge.container.JarContainer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,7 +14,7 @@ import java.util.*;
 
 /**
  * Registry of discovered component containers.
- * Phase 1: filesystem containers only.
+ * Supports filesystem directories and plugin JAR files.
  */
 public class ComponentRegistry {
 
@@ -26,12 +27,42 @@ public class ComponentRegistry {
     }
 
     /**
-     * Build a registry by scanning a filesystem components root directory.
-     * Each subdirectory that contains component/schema.xml is treated as a container.
+     * Build a registry from filesystem components and/or plugin JARs.
+     * @param componentsRoot filesystem components root (may be null)
+     * @param pluginsRoot plugin JARs root (may be null)
      */
-    public static ComponentRegistry fromFilesystem(Path componentsRoot) throws IOException {
+    public static ComponentRegistry build(Path componentsRoot, Path pluginsRoot) throws IOException {
         Map<String, ComponentContainer> map = new LinkedHashMap<>();
 
+        // Load JAR containers first (filesystem overrides JAR for same ID)
+        if (pluginsRoot != null) {
+            scanPlugins(pluginsRoot, map);
+        }
+
+        // Load filesystem containers (override JARs)
+        if (componentsRoot != null) {
+            scanFilesystem(componentsRoot, map);
+        }
+
+        log.info("Component registry: {} component(s) discovered", map.size());
+        return new ComponentRegistry(map);
+    }
+
+    /**
+     * Build a registry from filesystem components only.
+     */
+    public static ComponentRegistry fromFilesystem(Path componentsRoot) throws IOException {
+        return build(componentsRoot, null);
+    }
+
+    /**
+     * Build a registry from plugin JARs only.
+     */
+    public static ComponentRegistry fromPlugins(Path pluginsRoot) throws IOException {
+        return build(null, pluginsRoot);
+    }
+
+    private static void scanFilesystem(Path componentsRoot, Map<String, ComponentContainer> map) throws IOException {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(componentsRoot)) {
             for (Path dir : stream) {
                 if (!Files.isDirectory(dir)) {
@@ -46,16 +77,31 @@ public class ComponentRegistry {
                 FilesystemContainer container = new FilesystemContainer(dir);
                 String id = container.getId();
                 if (map.containsKey(id)) {
-                    log.warn("Duplicate component ID '{}': {} overrides {}", id,
-                            dir, ((FilesystemContainer) map.get(id)).getContainerRoot());
+                    log.info("Filesystem component '{}' overrides JAR/previous source", id);
                 }
                 map.put(id, container);
-                log.debug("Discovered component '{}' at {}", id, dir);
+                log.debug("Discovered filesystem component '{}' at {}", id, dir);
             }
         }
+    }
 
-        log.info("Component registry: {} component(s) discovered", map.size());
-        return new ComponentRegistry(map);
+    private static void scanPlugins(Path pluginsRoot, Map<String, ComponentContainer> map) throws IOException {
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(pluginsRoot, "*.jar")) {
+            for (Path jarPath : stream) {
+                JarContainer container = JarContainer.openIfValid(jarPath);
+                if (container == null) {
+                    log.debug("Skipping {}: not a ChibiForge plugin", jarPath.getFileName());
+                    continue;
+                }
+
+                String id = container.getId();
+                if (map.containsKey(id)) {
+                    log.warn("Duplicate plugin component ID '{}': {} overrides previous", id, jarPath);
+                }
+                map.put(id, container);
+                log.debug("Discovered plugin component '{}' in {}", id, jarPath);
+            }
+        }
     }
 
     /**

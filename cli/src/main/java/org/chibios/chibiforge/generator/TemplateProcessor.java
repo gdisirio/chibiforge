@@ -8,13 +8,13 @@ import org.chibios.chibiforge.container.FilesystemContent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.*;
+import java.nio.file.*;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * Processes FreeMarker templates from component cfg/ directory using FMPP.
@@ -54,15 +54,6 @@ public class TemplateProcessor {
             return;
         }
 
-        // Resolve the cfg/ source directory
-        Path cfgDir;
-        if (content instanceof FilesystemContent fsContent) {
-            cfgDir = fsContent.getRoot().resolve("cfg");
-        } else {
-            throw new UnsupportedOperationException(
-                    "Template processing from non-filesystem content not yet supported");
-        }
-
         // Handle dry-run: just report what would happen
         if (ctx.isDryRun()) {
             for (String template : templates) {
@@ -76,22 +67,33 @@ public class TemplateProcessor {
             return;
         }
 
-        // Ensure output directory exists
+        // Resolve cfg/ as a filesystem directory (extract from JAR if needed)
+        Path cfgDir = resolveCfgDir(content);
+        boolean isTempDir = !(content instanceof FilesystemContent);
+
+        try {
+            processWithFmpp(componentId, templates, cfgDir, dataModel, ctx, report);
+        } finally {
+            if (isTempDir) {
+                deleteTempDir(cfgDir);
+            }
+        }
+    }
+
+    private void processWithFmpp(String componentId, List<String> templates, Path cfgDir,
+                                  Map<String, Object> dataModel, GenerationContext ctx,
+                                  GenerationReport report) throws Exception {
         Files.createDirectories(ctx.getGeneratedRoot());
 
-        // Configure FMPP Engine
         Engine engine = new Engine();
         engine.setSourceRoot(cfgDir.toFile());
         engine.setOutputRoot(ctx.getGeneratedRoot().toFile());
 
-        // Strip .ftl and .ftlc extensions automatically
         engine.setRemoveFreemarkerExtensions(true);
         engine.addRemoveExtension("ftlc");
 
-        // Inject data model variables
         engine.addData(dataModel);
 
-        // Add progress listener to capture actions for the report
         engine.addProgressListener(new ProgressListener() {
             @Override
             public void notifyProgressEvent(
@@ -110,7 +112,6 @@ public class TemplateProcessor {
             }
         });
 
-        // Process all template files
         try {
             File[] sourceFiles = templates.stream()
                     .map(t -> cfgDir.resolve(t).toFile())
@@ -120,6 +121,39 @@ public class TemplateProcessor {
             throw new IOException("FMPP template processing failed for component '"
                     + componentId + "': " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Resolve the cfg/ directory as a filesystem path.
+     * For FilesystemContent, returns the path directly.
+     * For other content types (JAR), extracts cfg/ files to a temp directory.
+     */
+    private Path resolveCfgDir(ComponentContent content) throws IOException {
+        if (content instanceof FilesystemContent fsContent) {
+            return fsContent.getRoot().resolve("cfg");
+        }
+
+        // Extract cfg/ files to a temp directory
+        Path tempDir = Files.createTempDirectory("chibiforge-cfg-");
+        List<String> cfgFiles = content.list("cfg/");
+        for (String relativePath : cfgFiles) {
+            String withinCfg = relativePath.substring("cfg/".length());
+            Path destPath = tempDir.resolve(withinCfg);
+            Files.createDirectories(destPath.getParent());
+            try (InputStream is = content.open(relativePath)) {
+                Files.copy(is, destPath);
+            }
+        }
+        return tempDir;
+    }
+
+    private void deleteTempDir(Path dir) {
+        try (Stream<Path> walk = Files.walk(dir)) {
+            walk.sorted(Comparator.reverseOrder())
+                .forEach(p -> {
+                    try { Files.delete(p); } catch (IOException ignored) {}
+                });
+        } catch (IOException ignored) {}
     }
 
     private boolean isTemplate(String path) {

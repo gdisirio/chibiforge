@@ -1,9 +1,9 @@
 package org.chibios.chibiforge.cli;
 
+import org.chibios.chibiforge.generator.GenerationAction;
 import org.chibios.chibiforge.generator.GenerationContext;
 import org.chibios.chibiforge.generator.GenerationReport;
 import org.chibios.chibiforge.generator.GeneratorEngine;
-import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -48,6 +48,7 @@ public class GenerateCommand implements Callable<Integer> {
         try {
             Path resolvedConfig = resolveConfigPath();
             Path resolvedComponents = resolveComponentsRoot();
+            Path resolvedPlugins = resolvePluginsRoot();
 
             if (!Files.exists(resolvedConfig)) {
                 System.err.println("Error: Configuration file not found: " + resolvedConfig);
@@ -57,12 +58,29 @@ public class GenerateCommand implements Callable<Integer> {
                 System.err.println("Error: Configuration path is not a file: " + resolvedConfig);
                 return 1;
             }
-            if (!Files.exists(resolvedComponents)) {
-                System.err.println("Error: Components root not found: " + resolvedComponents);
-                return 1;
+            if (resolvedComponents != null) {
+                if (!Files.exists(resolvedComponents)) {
+                    System.err.println("Error: Components root not found: " + resolvedComponents);
+                    return 1;
+                }
+                if (!Files.isDirectory(resolvedComponents)) {
+                    System.err.println("Error: Components root is not a directory: " + resolvedComponents);
+                    return 1;
+                }
             }
-            if (!Files.isDirectory(resolvedComponents)) {
-                System.err.println("Error: Components root is not a directory: " + resolvedComponents);
+            if (resolvedPlugins != null) {
+                if (!Files.exists(resolvedPlugins)) {
+                    System.err.println("Error: Plugins root not found: " + resolvedPlugins);
+                    return 1;
+                }
+                if (!Files.isDirectory(resolvedPlugins)) {
+                    System.err.println("Error: Plugins root is not a directory: " + resolvedPlugins);
+                    return 1;
+                }
+            }
+            if (resolvedComponents == null && resolvedPlugins == null) {
+                System.err.println("Error: No component sources specified. " +
+                        "Use --components and/or --plugins (or set CHIBIFORGE_COMPONENTS_ROOT / CHIBIFORGE_PLUGINS_ROOT)");
                 return 1;
             }
 
@@ -74,14 +92,17 @@ public class GenerateCommand implements Callable<Integer> {
             if (verbose) {
                 System.out.println("Configuration file: " + resolvedConfig.toAbsolutePath());
                 System.out.println("Configuration root: " + configRoot.toAbsolutePath());
-                System.out.println("Components root:    " + resolvedComponents.toAbsolutePath());
+                if (resolvedComponents != null)
+                    System.out.println("Components root:    " + resolvedComponents.toAbsolutePath());
+                if (resolvedPlugins != null)
+                    System.out.println("Plugins root:       " + resolvedPlugins.toAbsolutePath());
                 System.out.println("Target:             " + target);
                 System.out.println("Dry run:            " + dryRun);
             }
 
             GenerationContext ctx = new GenerationContext(configRoot, target, dryRun, verbose);
             GeneratorEngine engine = new GeneratorEngine();
-            GenerationReport report = engine.generate(ctx, resolvedComponents);
+            GenerationReport report = engine.generate(ctx, resolvedComponents, resolvedPlugins);
 
             if (verbose) {
                 report.printSummary();
@@ -90,9 +111,9 @@ public class GenerateCommand implements Callable<Integer> {
                     System.out.println("WARNING: " + warning);
                 }
                 System.out.println("Generation complete: " +
-                        report.countByType(org.chibios.chibiforge.generator.GenerationAction.Type.COPY) + " copied, " +
-                        report.countByType(org.chibios.chibiforge.generator.GenerationAction.Type.SKIP) + " skipped, " +
-                        report.countByType(org.chibios.chibiforge.generator.GenerationAction.Type.TEMPLATE) + " templates.");
+                        report.countByType(GenerationAction.Type.COPY) + " copied, " +
+                        report.countByType(GenerationAction.Type.SKIP) + " skipped, " +
+                        report.countByType(GenerationAction.Type.TEMPLATE) + " templates.");
             }
             return 0;
 
@@ -124,12 +145,17 @@ public class GenerateCommand implements Callable<Integer> {
         if (envRoot != null && !envRoot.isBlank()) {
             return Path.of(envRoot);
         }
-        throw new IllegalArgumentException(
-                "No components root specified. Use --components or set CHIBIFORGE_COMPONENTS_ROOT");
+        return null;
     }
 
-    // Getters for testing
-    public String getTarget() { return target; }
-    public boolean isDryRun() { return dryRun; }
-    public boolean isVerbose() { return verbose; }
+    private Path resolvePluginsRoot() {
+        if (pluginsRoot != null) {
+            return Path.of(pluginsRoot);
+        }
+        String envRoot = System.getenv("CHIBIFORGE_PLUGINS_ROOT");
+        if (envRoot != null && !envRoot.isBlank()) {
+            return Path.of(envRoot);
+        }
+        return null;
+    }
 }
