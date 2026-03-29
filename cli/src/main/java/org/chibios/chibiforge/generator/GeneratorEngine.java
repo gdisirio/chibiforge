@@ -10,6 +10,7 @@ import org.chibios.chibiforge.container.ComponentContent;
 import org.chibios.chibiforge.datamodel.DataModelBuilder;
 import org.chibios.chibiforge.feature.FeatureChecker;
 import org.chibios.chibiforge.registry.ComponentRegistry;
+import org.chibios.chibiforge.resource.RefResolver;
 import org.chibios.chibiforge.resource.ResourceLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +34,7 @@ public class GeneratorEngine {
     private final TargetResolver targetResolver = new TargetResolver();
     private final FeatureChecker featureChecker = new FeatureChecker();
     private final ResourceLoader resourceLoader = new ResourceLoader();
+    private final RefResolver refResolver = new RefResolver();
     private final DataModelBuilder dataModelBuilder = new DataModelBuilder();
     private final StaticPayloadCopier staticCopier = new StaticPayloadCopier();
     private final TemplateProcessor templateProcessor = new TemplateProcessor();
@@ -99,6 +101,9 @@ public class GeneratorEngine {
 
             // Load resources
             Map<String, Object> resources = resourceLoader.loadResources(def, content);
+
+            // Resolve @ref: defaults and fill in missing properties
+            refResolver.applyDefaults(def, entry.getConfigElement(), resources);
 
             // Build data model
             Map<String, Object> dataModel = dataModelBuilder.buildDataModel(

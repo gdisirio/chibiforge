@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component
+    xmlns="http://chibiforge/schema/component"
+    id="test.refdefault"
+    name="RefDefault Component"
+    version="1.0.0"
+    hidden="false"
+    is_platform="false">
+
+  <description>Tests @ref: resolution in property defaults.</description>
+
+  <resources>
+    <resource id="limits" file="resources/limits.xml"/>
+  </resources>
+
+  <categories><category id="Test"/></categories>
+  <requires/>
+  <provides/>
+
+  <sections>
+    <section name="settings" expanded="true">
+      <description>Settings with @ref: defaults.</description>
+      <property name="max_channels" type="int" brief="Max ADC channels"
+                required="true" editable="false"
+                default="@ref:limits/limits/adc/@max_channels"/>
+      <property name="voltage" type="int" brief="Default voltage"
+                required="true" editable="true"
+                default="@ref:limits/limits/voltage/@default"/>
+      <property name="label" type="string" brief="Label"
+                required="true" editable="true"
+                default="fixed_value"/>
+    </section>
+  </sections>
+</component>
