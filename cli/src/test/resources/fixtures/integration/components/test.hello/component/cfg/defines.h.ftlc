@@ -1,0 +1,16 @@
+// Code-first generated defines
+emit "#ifndef DEFINES_H\n"
+emit "#define DEFINES_H\n\n"
+
+emit "/* Greeting: ${doc.settings.greeting} */\n"
+
+count = doc.settings.count?number
+if count > 10
+  emit "#define LARGE_COUNT 1\n"
+else
+  emit "#define LARGE_COUNT 0\n"
+endif
+
+emit "#define COUNT_VALUE ${doc.settings.count}\n"
+
+emit "\n#endif /* DEFINES_H */\n"

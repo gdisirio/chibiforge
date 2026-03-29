@@ -72,9 +72,18 @@ class GeneratorEngineIntegrationTest {
         assertThat(headerContent).contains("#define ENABLED true");
         assertThat(headerContent).contains("#define TARGET \"default\"");
 
-        // 5. Report has expected action counts
+        // 5. Code-first (.ftlc) template processed
+        Path definesHeader = configRoot.resolve("generated/defines.h");
+        assertThat(definesHeader).exists();
+        String definesContent = Files.readString(definesHeader);
+        assertThat(definesContent).contains("#ifndef DEFINES_H");
+        assertThat(definesContent).contains("/* Greeting: Hi there */");
+        assertThat(definesContent).contains("#define LARGE_COUNT 0"); // count=5 <= 10
+        assertThat(definesContent).contains("#define COUNT_VALUE 5");
+
+        // 6. Report has expected action counts
         assertThat(report.countByType(GenerationAction.Type.COPY)).isGreaterThanOrEqualTo(3);
-        assertThat(report.countByType(GenerationAction.Type.TEMPLATE)).isEqualTo(1);
+        assertThat(report.countByType(GenerationAction.Type.TEMPLATE)).isEqualTo(2);
     }
 
     @Test

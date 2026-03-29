@@ -39,7 +39,7 @@ class DataModelBuilderTest {
                 entry.getComponentId(), entry, allConfigs,
                 Map.of(), tempDir, "default");
 
-        fmConfig = new Configuration(Configuration.VERSION_2_3_33);
+        fmConfig = new Configuration(Configuration.VERSION_2_3_32);
         fmConfig.setDefaultEncoding("UTF-8");
     }
 
