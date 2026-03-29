@@ -140,6 +140,7 @@
                                 </transformer>
                             </transformers>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <outputFile>${project.basedir}/chibiforge.jar</outputFile>
                         </configuration>
                     </execution>
                 </executions>

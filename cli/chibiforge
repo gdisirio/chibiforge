@@ -1,4 +1,4 @@
 #!/bin/bash
 # ChibiForge CLI wrapper
 DIR="$(cd "$(dirname "$0")" && pwd)"
-exec java -jar "$DIR/target/chibiforge-cli-1.0.0-SNAPSHOT.jar" "$@"
+exec java -jar "$DIR/chibiforge.jar" "$@"

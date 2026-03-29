@@ -1,0 +1,19 @@
+# Maven build output
+target/
+cli/chibiforge.jar
+
+# Private documents
+specs/
+
+# IDE files
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+.vscode/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
