@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component
+    xmlns="http://chibiforge/schema/component"
+    id="org.chibios.kernel.port.stm32f4xx"
+    name="ChibiOS-RT STM32F4xx Kernel Port"
+    version="1.0.0"
+    hidden="true"
+    is_platform="false">
+
+  <description>Kernel GCC port layer for ARM Cortex-M4 on the STM32F4xx.</description>
+
+  <resources/>
+
+  <categories>
+    <category id="ChibiOS-RT/Platforms/STM32F4xx"/>
+  </categories>
+
+  <requires>
+    <feature id="com.st.tools.spc5.features.platform.stm32f4xx"/>
+  </requires>
+
+  <provides>
+    <feature id="org.chibios.spc5.features.kernel.port"/>
+    <feature id="org.chibios.spc5.features.kernel.port.gcc"/>
+    <feature id="org.chibios.spc5.features.kernel.port.gcc.armcmx"/>
+    <feature id="org.chibios.spc5.features.kernel.port.gcc.armcmx.stm32f4xx"/>
+  </provides>
+
+</component>

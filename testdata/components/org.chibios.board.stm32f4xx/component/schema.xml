@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component
+    xmlns="http://chibiforge/schema/component"
+    id="org.chibios.board.stm32f4xx"
+    name="ChibiOS-RT STM32F4xx Board"
+    version="1.0.0"
+    hidden="true"
+    is_platform="false">
+
+  <description>ChibiOS/RT STM32F4xx board description files.</description>
+
+  <resources/>
+
+  <categories>
+    <category id="ChibiOS-RT/Platforms/STM32F4xx"/>
+  </categories>
+
+  <requires/>
+
+  <provides>
+    <feature id="org.chibios.spc5.features.board" exclusive="true"/>
+  </provides>
+
+  <sections>
+    <section name="Identification" expanded="true">
+      <description>Board info related settings.</description>
+      <property name="board_identifier" type="string"
+                brief="An identifier for the board, a macro is generated prefixed with BOARD_."
+                required="true" editable="true" default="GENERIC_STM32F4XX"
+                string_regex="^[a-zA-Z_][a-zA-Z0-9_]*$"/>
+      <property name="board_name" type="string"
+                brief="A readable name for the board, must not contain double quotes."
+                required="true" editable="true" default="Generic STM32F4xx"/>
+    </section>
+
+    <section name="Clock Settings" expanded="true">
+      <description>Clock related settings.</description>
+      <property name="vdd" type="int"
+                brief="MCU voltage in hundredths of Volt."
+                required="true" editable="true" default="300"
+                int_min="180" int_max="360"/>
+      <property name="hse_oscillator_mode" type="enum"
+                brief="HSE Oscillator Mode."
+                required="true" editable="true" default="Crystal"
+                enum_of="Crystal,Bypass,None"/>
+      <property name="hse_frequency" type="int"
+                brief="HSE frequency in Hz, unused if mode is set to None."
+                required="true" editable="true" default="8000000"
+                int_min="1000000" int_max="26000000"/>
+      <property name="lse_oscillator_mode" type="enum"
+                brief="LSE Oscillator Mode."
+                required="true" editable="true" default="Crystal"
+                enum_of="Crystal,Bypass,None"/>
+      <property name="lse_frequency" type="int"
+                brief="LSE frequency in Hz, unused if mode is set to None."
+                required="true" editable="true" default="32768"
+                int_min="32768" int_max="1000000"/>
+    </section>
+
+    <section name="PHY Settings" expanded="true">
+      <description>Settings related to the Ethernet PHY.</description>
+      <property name="address" type="enum"
+                brief="PHY Address or auto-scan mode."
+                required="true" editable="true" default="None"
+                enum_of="None,Autoscan,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31"/>
+      <property name="id" type="enum"
+                brief="PHY identifier number."
+                required="true" editable="true" default="MII_DP83848I_ID"
+                enum_of="MII_DP83848I_ID,MII_STE101P_ID,MII_KS8721_ID,MII_DM9161_ID,MII_AM79C875_ID"/>
+      <property name="mode" type="enum"
+                brief="PHY connection mode."
+                required="true" editable="true" default="RMII"
+                enum_of="RMII,MII"/>
+    </section>
+
+    <section name="I/O Settings" expanded="true">
+      <description>I/O pins related settings. All undefined pins are initialized as input with pull-up resistor.</description>
+      <property name="pins_list" type="list"
+                brief="Pin modes to be programmed when the HAL is initialized."
+                required="true" editable="true" default=""
+                list_columns="port:100,bit:60,identifiers:150,pin_mode:100">
+        <sections>
+          <section name="Pin Identification" expanded="true">
+            <description>Pin identification properties.</description>
+            <property name="identifiers" type="string"
+                      brief="Pin Identifiers, space-separated names for the pin."
+                      required="false" editable="true" default=""
+                      string_regex="^([a-zA-Z_][a-zA-Z0-9_]*\s*)*$"/>
+            <property name="port" type="enum"
+                      brief="Port where the pin belongs to."
+                      required="true" editable="true" default="GPIOA"
+                      enum_of="GPIOA,GPIOB,GPIOC,GPIOD,GPIOE,GPIOF,GPIOG,GPIOH,GPIOI"/>
+            <property name="bit" type="enum"
+                      brief="Pin bit number within the specified port."
+                      required="true" editable="true" default="0"
+                      enum_of="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15"/>
+          </section>
+          <section name="Settings" expanded="true">
+            <description>Pin state and mode settings.</description>
+            <property name="pin_mode" type="enum"
+                      brief="Pin modes such as direction, pull-up/down resistors etc."
+                      required="true" editable="true" default="Input"
+                      enum_of="Input,Output,Alternate,Analog"/>
+            <property name="latched_state" type="enum"
+                      brief="Logic state to be latched into the output register."
+                      required="true" editable="true" default="Low"
+                      enum_of="Low,High"/>
+            <property name="output_type" type="enum"
+                      brief="Output mode setting for output pins."
+                      required="true" editable="true" default="PushPull"
+                      enum_of="PushPull,OpenDrain"/>
+            <property name="output_speed" type="enum"
+                      brief="Output speed setting for output pins."
+                      required="true" editable="true" default="50MHz"
+                      enum_of="2MHz,25MHz,50MHz,100MHz"/>
+            <property name="input_resistor" type="enum"
+                      brief="Input resistor setting for input pins."
+                      required="true" editable="true" default="Floating"
+                      enum_of="Floating,Pull-Up,Pull-Down"/>
+            <property name="alternate_function" type="enum"
+                      brief="Alternate function number settings for alternate pins."
+                      required="true" editable="true" default="0"
+                      enum_of="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15"/>
+          </section>
+        </sections>
+      </property>
+    </section>
+
+    <section name="Initialization Code" expanded="false">
+      <description>Code snippets to be executed at system initialization.</description>
+      <property name="early_initialization_code" type="text"
+                brief="Code to be executed immediately after clock initialization and before C runtime initialization."
+                required="false" editable="true" default=""/>
+      <property name="late_initialization_code" type="text"
+                brief="Code to be executed immediately after C runtime initialization and before any defined constructor."
+                required="false" editable="true" default=""/>
+      <property name="board_initialization_code" type="text"
+                brief="Code to be executed after the HAL has been initialized."
+                required="false" editable="true" default=""/>
+      <property name="additional_code" type="text"
+                brief="Additional functions to be added to board.c."
+                required="false" editable="true" default=""/>
+    </section>
+  </sections>
+
+</component>
