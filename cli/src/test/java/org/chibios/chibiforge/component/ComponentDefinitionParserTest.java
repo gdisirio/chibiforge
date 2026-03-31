@@ -126,6 +126,25 @@ class ComponentDefinitionParserTest {
     }
 
     @Test
+    void visibleAndEditableIfAttributes() {
+        SectionDef section = def.getSections().get(0);
+        PropertyDef vdd = (PropertyDef) section.getChildren().get(1);
+        assertThat(vdd.isVisible()).isTrue();
+        assertThat(vdd.getEditableIf()).isEqualTo("doc.initialization_settings.do_not_init = 'false'");
+        assertThat(vdd.getVisibleIf()).isNull();
+    }
+
+    @Test
+    void defaultVisibleWhenAttributeMissing() {
+        SectionDef section = def.getSections().get(0);
+        PropertyDef doNotInit = (PropertyDef) section.getChildren().get(0);
+        // visible attribute not present in XML — defaults to true
+        assertThat(doNotInit.isVisible()).isTrue();
+        assertThat(doNotInit.getEditableIf()).isNull();
+        assertThat(doNotInit.getVisibleIf()).isNull();
+    }
+
+    @Test
     void layoutWithChildrenAndEmpty() {
         SectionDef section = def.getSections().get(0);
         LayoutDef layout = (LayoutDef) section.getChildren().get(2);

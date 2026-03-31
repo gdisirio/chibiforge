@@ -99,9 +99,21 @@ class GeneratorEngineIntegrationTest {
         assertThat(definesContent).contains("#define LARGE_COUNT 0"); // count=5 <= 10
         assertThat(definesContent).contains("#define COUNT_VALUE 5");
 
-        // 6. Report has expected action counts
+        // 6. cfg_root_wa/ template processed to config root (always)
+        Path rootWaTemplate = configRoot.resolve("generated_makefile.mk");
+        assertThat(rootWaTemplate).exists();
+        String makeContent = Files.readString(rootWaTemplate);
+        assertThat(makeContent).contains("GREETING = Hi there");
+        assertThat(makeContent).contains("COUNT = 5");
+
+        // 7. cfg_root_wo/ template processed to config root (write-once)
+        Path rootWoTemplate = configRoot.resolve("user_config.h");
+        assertThat(rootWoTemplate).exists();
+        assertThat(Files.readString(rootWoTemplate)).contains("#define DEFAULT_GREETING \"Hi there\"");
+
+        // 8. Report has expected action counts
         assertThat(report.countByType(GenerationAction.Type.COPY)).isGreaterThanOrEqualTo(3);
-        assertThat(report.countByType(GenerationAction.Type.TEMPLATE)).isEqualTo(2);
+        assertThat(report.countByType(GenerationAction.Type.TEMPLATE)).isEqualTo(4); // 2 cfg + 1 cfg_root_wa + 1 cfg_root_wo
     }
 
     @Test
@@ -139,9 +151,21 @@ class GeneratorEngineIntegrationTest {
         // Second run
         GenerationReport report2 = engine.generate(ctx, componentsRoot);
 
-        // Write-once file should NOT be overwritten
+        // Write-once static file should NOT be overwritten
         assertThat(Files.readString(onceFile)).isEqualTo("/* user modified */");
+
+        // Write-once template output should also be preserved
+        Path woTemplate = configRoot.resolve("user_config.h");
+        assertThat(woTemplate).exists();
+        Files.writeString(woTemplate, "/* user edited template output */");
+
+        // Third run
+        GenerationReport report3 = engine.generate(ctx, componentsRoot);
+        assertThat(Files.readString(woTemplate)).isEqualTo("/* user edited template output */");
+
+        // Skips should include both static and template write-once files
         assertThat(report2.countByType(GenerationAction.Type.SKIP)).isGreaterThanOrEqualTo(1);
+        assertThat(report3.countByType(GenerationAction.Type.SKIP)).isGreaterThanOrEqualTo(2);
     }
 
     @Test

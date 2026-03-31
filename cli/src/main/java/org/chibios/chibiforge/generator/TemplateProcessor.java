@@ -35,32 +35,59 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 /**
- * Processes FreeMarker templates from component cfg/ directory using FMPP.
+ * Processes FreeMarker templates from component template directories using FMPP.
+ *
+ * Supports three convention-based template directories:
+ * - cfg/           → generated/          (always)
+ * - cfg_root_wa/   → configRoot          (always overwrite)
+ * - cfg_root_wo/   → configRoot          (write-once: skip if target exists)
  *
  * Supports .ftl (classic mode) and .ftlc (code-first mode) templates.
- * FMPP provides the pp hash for output redirection and handles extension stripping.
- *
- * Output mapping: cfg/foo.h.ftl -> generated/foo.h (FMPP strips template extensions).
- * Templates can use pp.changeOutputFile to redirect output within the configuration root.
  */
 public class TemplateProcessor {
 
     private static final Logger log = LoggerFactory.getLogger(TemplateProcessor.class);
 
+    /**
+     * Process all template directories for a component.
+     */
     public void processTemplates(String componentId, ComponentContent content,
                                  Map<String, Object> dataModel,
                                  GenerationContext ctx,
                                  GenerationReport report) throws Exception {
-        List<String> templateFiles = content.list("cfg/");
+        // cfg/ → generated/ (always)
+        processTemplateDir(componentId, content, "cfg/", ctx.getGeneratedRoot(),
+                false, dataModel, ctx, report);
+
+        // cfg_root_wa/ → configRoot (always)
+        processTemplateDir(componentId, content, "cfg_root_wa/", ctx.getConfigRoot(),
+                false, dataModel, ctx, report);
+
+        // cfg_root_wo/ → configRoot (write-once)
+        processTemplateDir(componentId, content, "cfg_root_wo/", ctx.getConfigRoot(),
+                true, dataModel, ctx, report);
+    }
+
+    /**
+     * Process templates from a single directory.
+     *
+     * @param dirPrefix   template directory prefix (e.g. "cfg/", "cfg_root_wa/")
+     * @param outputRoot  where FMPP writes output
+     * @param writeOnce   if true, skip templates whose output file already exists
+     */
+    private void processTemplateDir(String componentId, ComponentContent content, String dirPrefix,
+                                    Path outputRoot, boolean writeOnce,
+                                    Map<String, Object> dataModel, GenerationContext ctx,
+                                    GenerationReport report) throws Exception {
+        List<String> templateFiles = content.list(dirPrefix);
         if (templateFiles.isEmpty()) {
-            log.debug("No templates found for component '{}'", componentId);
             return;
         }
 
         // Filter to recognized template files
         List<String> templates = new ArrayList<>();
         for (String path : templateFiles) {
-            String relPath = path.substring("cfg/".length());
+            String relPath = path.substring(dirPrefix.length());
             if (isTemplate(relPath)) {
                 templates.add(relPath);
             } else {
@@ -72,40 +99,62 @@ public class TemplateProcessor {
             return;
         }
 
-        // Handle dry-run: just report what would happen
+        // Write-once: filter out templates whose output already exists
+        if (writeOnce) {
+            List<String> filtered = new ArrayList<>();
+            for (String template : templates) {
+                String outputRelPath = stripTemplateExtension(template);
+                Path outputPath = outputRoot.resolve(outputRelPath);
+                if (Files.exists(outputPath)) {
+                    log.debug("Skipping (write-once): {} -> {}", dirPrefix + template, outputPath);
+                    report.addAction(new GenerationAction(
+                            GenerationAction.Type.SKIP, dirPrefix + template,
+                            outputPath.toString(), "write-once, exists"));
+                } else {
+                    filtered.add(template);
+                }
+            }
+            templates = filtered;
+            if (templates.isEmpty()) {
+                return;
+            }
+        }
+
+        // Handle dry-run
         if (ctx.isDryRun()) {
             for (String template : templates) {
                 String outputRelPath = stripTemplateExtension(template);
-                Path outputPath = ctx.getGeneratedRoot().resolve(outputRelPath);
-                log.info("[dry-run] Would process template cfg/{} -> {}", template, outputPath);
+                Path outputPath = outputRoot.resolve(outputRelPath);
+                log.info("[dry-run] Would process template {}{} -> {}", dirPrefix, template, outputPath);
                 report.addAction(new GenerationAction(
-                        GenerationAction.Type.TEMPLATE, "cfg/" + template,
+                        GenerationAction.Type.TEMPLATE, dirPrefix + template,
                         outputPath.toString(), "dry-run"));
             }
             return;
         }
 
-        // Resolve cfg/ as a filesystem directory (extract from JAR if needed)
-        Path cfgDir = resolveCfgDir(content);
+        // Resolve template directory as filesystem path (extract from JAR if needed)
+        Path templateDir = resolveTemplateDir(content, dirPrefix);
         boolean isTempDir = !(content instanceof FilesystemContent);
 
         try {
-            processWithFmpp(componentId, templates, cfgDir, dataModel, ctx, report);
+            processWithFmpp(componentId, templates, templateDir, dirPrefix, outputRoot, dataModel, ctx, report);
         } finally {
             if (isTempDir) {
-                deleteTempDir(cfgDir);
+                deleteTempDir(templateDir);
             }
         }
     }
 
-    private void processWithFmpp(String componentId, List<String> templates, Path cfgDir,
+    private void processWithFmpp(String componentId, List<String> templates, Path templateDir,
+                                  String dirPrefix, Path outputRoot,
                                   Map<String, Object> dataModel, GenerationContext ctx,
                                   GenerationReport report) throws Exception {
-        Files.createDirectories(ctx.getGeneratedRoot());
+        Files.createDirectories(outputRoot);
 
         Engine engine = new Engine();
-        engine.setSourceRoot(cfgDir.toFile());
-        engine.setOutputRoot(ctx.getGeneratedRoot().toFile());
+        engine.setSourceRoot(templateDir.toFile());
+        engine.setOutputRoot(outputRoot.toFile());
 
         engine.setRemoveFreemarkerExtensions(true);
         engine.addRemoveExtension("ftlc");
@@ -118,13 +167,13 @@ public class TemplateProcessor {
                     Engine eng, int event, File src, int pMode,
                     Throwable error, Object param) {
                 if (event == ProgressListener.EVENT_END_FILE_PROCESSING && src != null) {
-                    String cfgPrefix = cfgDir.toAbsolutePath().toString();
+                    String tmplPrefix = templateDir.toAbsolutePath().toString();
                     String srcAbs = src.getAbsolutePath();
-                    String relInCfg = srcAbs.startsWith(cfgPrefix)
-                            ? srcAbs.substring(cfgPrefix.length() + 1) : src.getName();
-                    String srcRel = "cfg/" + relInCfg;
-                    String outputRel = stripTemplateExtension(relInCfg);
-                    Path outputPath = ctx.getGeneratedRoot().resolve(outputRel);
+                    String relInDir = srcAbs.startsWith(tmplPrefix)
+                            ? srcAbs.substring(tmplPrefix.length() + 1) : src.getName();
+                    String srcRel = dirPrefix + relInDir;
+                    String outputRel = stripTemplateExtension(relInDir);
+                    Path outputPath = outputRoot.resolve(outputRel);
                     log.debug("Processed template {} -> {}", srcRel, outputPath);
                     report.addAction(new GenerationAction(
                             GenerationAction.Type.TEMPLATE, srcRel,
@@ -135,31 +184,27 @@ public class TemplateProcessor {
 
         try {
             File[] sourceFiles = templates.stream()
-                    .map(t -> cfgDir.resolve(t).toFile())
+                    .map(t -> templateDir.resolve(t).toFile())
                     .toArray(File[]::new);
             engine.process(sourceFiles);
         } catch (ProcessingException e) {
             throw new IOException("FMPP template processing failed for component '"
-                    + componentId + "': " + e.getMessage(), e);
+                    + componentId + "' (" + dirPrefix + "): " + e.getMessage(), e);
         }
     }
 
-    /**
-     * Resolve the cfg/ directory as a filesystem path.
-     * For FilesystemContent, returns the path directly.
-     * For other content types (JAR), extracts cfg/ files to a temp directory.
-     */
-    private Path resolveCfgDir(ComponentContent content) throws IOException {
+    private Path resolveTemplateDir(ComponentContent content, String dirPrefix) throws IOException {
         if (content instanceof FilesystemContent fsContent) {
-            return fsContent.getRoot().resolve("cfg");
+            return fsContent.getRoot().resolve(dirPrefix.endsWith("/")
+                    ? dirPrefix.substring(0, dirPrefix.length() - 1) : dirPrefix);
         }
 
-        // Extract cfg/ files to a temp directory
-        Path tempDir = Files.createTempDirectory("chibiforge-cfg-");
-        List<String> cfgFiles = content.list("cfg/");
-        for (String relativePath : cfgFiles) {
-            String withinCfg = relativePath.substring("cfg/".length());
-            Path destPath = tempDir.resolve(withinCfg);
+        // Extract template files to a temp directory
+        Path tempDir = Files.createTempDirectory("chibiforge-tmpl-");
+        List<String> files = content.list(dirPrefix);
+        for (String relativePath : files) {
+            String withinDir = relativePath.substring(dirPrefix.length());
+            Path destPath = tempDir.resolve(withinDir);
             Files.createDirectories(destPath.getParent());
             try (InputStream is = content.open(relativePath)) {
                 Files.copy(is, destPath);
@@ -181,9 +226,6 @@ public class TemplateProcessor {
         return path.endsWith(".ftl") || path.endsWith(".ftlc");
     }
 
-    /**
-     * Strip the template extension (.ftl or .ftlc) from the filename.
-     */
     private String stripTemplateExtension(String path) {
         if (path.endsWith(".ftl")) {
             return path.substring(0, path.length() - ".ftl".length());

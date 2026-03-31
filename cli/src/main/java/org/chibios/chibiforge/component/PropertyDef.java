@@ -39,6 +39,9 @@ public class PropertyDef {
     private final String brief;
     private final boolean required;
     private final boolean editable;
+    private final String editableIf;
+    private final boolean visible;
+    private final String visibleIf;
     private final String defaultValue;
 
     // Type-specific attributes
@@ -53,6 +56,7 @@ public class PropertyDef {
     private final List<SectionDef> nestedSections;
 
     public PropertyDef(String name, Type type, String brief, boolean required, boolean editable,
+                       String editableIf, boolean visible, String visibleIf,
                        String defaultValue, String intMin, String intMax, String stringRegex,
                        String textMaxsize, String enumOf, String listColumns,
                        List<SectionDef> nestedSections) {
@@ -61,6 +65,9 @@ public class PropertyDef {
         this.brief = brief;
         this.required = required;
         this.editable = editable;
+        this.editableIf = editableIf;
+        this.visible = visible;
+        this.visibleIf = visibleIf;
         this.defaultValue = defaultValue;
         this.intMin = intMin;
         this.intMax = intMax;
@@ -76,6 +83,9 @@ public class PropertyDef {
     public String getBrief() { return brief; }
     public boolean isRequired() { return required; }
     public boolean isEditable() { return editable; }
+    public String getEditableIf() { return editableIf; }
+    public boolean isVisible() { return visible; }
+    public String getVisibleIf() { return visibleIf; }
     public String getDefaultValue() { return defaultValue; }
     public String getIntMin() { return intMin; }
     public String getIntMax() { return intMax; }
