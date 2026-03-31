@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://www.example.org/chibiforge_schema/" targetNamespace="http://www.example.org/chibiforge_schema/">
+    <element name="component" type="tns:componentType"></element>
+    
+    <complexType name="componentType">
+      <sequence>
+        <element name="description" type="string" maxOccurs="1" minOccurs="1"></element>
+            <element name="resources" type="tns:resourcesType" maxOccurs="1" minOccurs="1"></element>
+            <element name="categories" type="tns:categoriesType" maxOccurs="1"
+          minOccurs="1">
+        </element>
+        <element name="requires" type="tns:requiresType" maxOccurs="1"
+          minOccurs="1">
+        </element>
+        <element name="provides" type="tns:providesType" maxOccurs="1"
+          minOccurs="1">
+        </element>
+        <choice maxOccurs="unbounded" minOccurs="0">
+          <element name="image" type="tns:imageType" maxOccurs="1"
+            minOccurs="0">
+          </element>
+          <element name="sections" type="tns:sectionsType" maxOccurs="1"
+            minOccurs="0">
+          </element>
+        </choice>
+      </sequence>
+      <attribute name="name" type="string" use="required"></attribute>
+      <attribute name="id" type="string" use="required"></attribute>
+        <attribute name="version" type="string" use="required"></attribute>
+        <attribute name="hidden" form="unqualified" use="required">
+        <simpleType>
+          <restriction base="string">
+            <enumeration value="false"></enumeration>
+            <enumeration value="true"></enumeration>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="is_platform" type="string" use="required"></attribute>
+    </complexType>
+
+    <complexType name="imageType">
+      <sequence>
+        <element name="text" type="string" minOccurs="1" maxOccurs="1"></element>
+      </sequence>
+      <attribute name="align" use="required">
+        <simpleType>
+          <restriction base="string">
+            <enumeration value="left"></enumeration>
+            <enumeration value="center"></enumeration>
+            <enumeration value="right"></enumeration>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="file" type="string" use="required"></attribute>
+    </complexType>
+
+    <complexType name="sectionType">
+      <sequence>
+        <element name="description" type="string" maxOccurs="1" minOccurs="1"></element>
+        <choice maxOccurs="unbounded" minOccurs="0">
+          <element name="layout" type="tns:layoutType" maxOccurs="1"
+            minOccurs="0">
+          </element>
+          <element name="image" type="tns:imageType" maxOccurs="1"
+            minOccurs="0">
+          </element>
+          <element name="property" type="tns:propertyType" maxOccurs="1"
+            minOccurs="0">
+          </element>
+        </choice>
+      </sequence>
+      <attribute name="name" use="required">
+        <simpleType>
+          <restriction base="string">
+            <minLength value="1"></minLength>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="expanded" use="required">
+        <simpleType>
+          <restriction base="string">
+            <enumeration value="false"></enumeration>
+            <enumeration value="true"></enumeration>
+          </restriction>
+        </simpleType>
+      </attribute>
+    </complexType>
+
+    <complexType name="layoutType">
+      <sequence>
+        <choice maxOccurs="unbounded" minOccurs="0">
+          <element name="image" type="tns:imageType" maxOccurs="1"
+            minOccurs="0">
+          </element>
+          <element name="property" type="tns:propertyType" maxOccurs="1"
+            minOccurs="0">
+          </element>
+          <element name="empty" type="string" maxOccurs="1" minOccurs="0">
+            <annotation>
+              <documentation>Empty visual slot.</documentation>
+            </annotation></element>
+        </choice>
+      </sequence>
+      <attribute name="columns" use="required">
+        <simpleType>
+          <restriction base="string">
+            <enumeration value="1"></enumeration>
+            <enumeration value="2"></enumeration>
+            <enumeration value="3"></enumeration>
+            <enumeration value="4"></enumeration>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="align" use="required">
+        <simpleType>
+          <restriction base="string">
+            <enumeration value="left"></enumeration>
+            <enumeration value="center"></enumeration>
+            <enumeration value="right"></enumeration>
+          </restriction>
+        </simpleType>
+      </attribute>
+    </complexType>
+
+    <complexType name="propertyType">
+      <sequence>
+        <element name="sections" type="tns:sectionsType" maxOccurs="1"
+          minOccurs="0">
+        </element>
+      </sequence>
+      <attribute name="type" use="required">
+        <simpleType>
+          <restriction base="string">
+            <enumeration value="int"></enumeration>
+            <enumeration value="string"></enumeration>
+            <enumeration value="text"></enumeration>
+            <enumeration value="bool"></enumeration>
+            <enumeration value="enum"></enumeration>
+            <enumeration value="list"></enumeration>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="brief" use="required">
+        <simpleType>
+          <restriction base="string">
+            <minLength value="1"></minLength>
+          </restriction>
+        </simpleType>
+      </attribute>
+        <attribute name="name" use="required">
+        <simpleType>
+          <restriction base="string">
+            <minLength value="1"></minLength>
+          </restriction>
+        </simpleType>
+      </attribute>
+        <attribute name="required" use="required">
+        <simpleType>
+          <restriction base="string">
+            <enumeration value="false"></enumeration>
+            <enumeration value="true"></enumeration>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="default" type="string" use="required"></attribute>
+      <attribute name="editable" use="required">
+        <simpleType>
+          <restriction base="string">
+            <enumeration value="false"></enumeration>
+            <enumeration value="true"></enumeration>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="editable_if" type="string"></attribute>
+      <attribute name="visible" use="required">
+        <simpleType>
+          <restriction base="string">
+            <enumeration value="false"></enumeration>
+            <enumeration value="true"></enumeration>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="visible_if" type="string"></attribute>
+      <attribute name="string_regex">
+        <annotation>
+          <documentation>Regex for validating string properties.</documentation>
+        </annotation>
+        <simpleType>
+          <restriction base="string">
+            <minLength value="1"></minLength>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="enum_of" type="string">
+        <annotation>
+          <documentation>CSV of the enumeration choices.</documentation>
+        </annotation>
+      </attribute>
+      <attribute name="list_columns" type="string">
+        <annotation>
+          <documentation>
+            CSV of the list property names to be shown in the table view
+            optionally followed by : and column size in pixel.
+          </documentation>
+        </annotation>
+      </attribute>
+      <attribute name="int_min" type="string">
+        <annotation>
+          <documentation>Minumum value for int properties.</documentation>
+        </annotation>
+      </attribute>
+      <attribute name="int_max" type="string">
+        <annotation>
+          <documentation>Maximum value for int properties.</documentation>
+        </annotation>
+      </attribute>
+      <attribute name="text_maxsize" type="string">
+        <annotation>
+          <documentation>Maximum size for text properties.</documentation>
+        </annotation>
+      </attribute>
+    </complexType>
+
+    <complexType name="sectionsType">
+      <sequence>
+        <element name="section" type="tns:sectionType" maxOccurs="unbounded" minOccurs="1"></element>
+      </sequence>
+    </complexType>
+
+    <complexType name="categoriesType">
+      <sequence>
+        <element name="category" type="tns:categoryType" maxOccurs="unbounded" minOccurs="1"></element>
+      </sequence>
+    </complexType>
+
+    <complexType name="categoryType">
+      <attribute name="id" use="required">
+        <simpleType>
+          <restriction base="string">
+            <minLength value="1"></minLength>
+          </restriction>
+        </simpleType>
+      </attribute>
+    </complexType>
+
+    <complexType name="requiresType">
+      <sequence>
+        <element name="feature" type="tns:featureType" maxOccurs="unbounded" minOccurs="0"></element>
+      </sequence>
+    </complexType>
+
+    <complexType name="featureType">
+      <attribute name="id" use="required">
+        <simpleType>
+          <restriction base="string">
+            <minLength value="1"></minLength>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="exclusive">
+        <simpleType>
+          <restriction base="string">
+            <enumeration value="false"></enumeration>
+            <enumeration value="true"></enumeration>
+          </restriction>
+        </simpleType>
+      </attribute>
+    </complexType>
+
+    <complexType name="providesType">
+      <sequence>
+        <element name="feature" type="tns:featureType" maxOccurs="unbounded" minOccurs="0"></element>
+      </sequence>
+    </complexType>
+
+    <complexType name="resourcesType">
+      <sequence>
+        <element name="resource" type="tns:resourceType" maxOccurs="unbounded" minOccurs="0"></element>
+      </sequence>
+    </complexType>
+
+    <complexType name="resourceType">
+      <attribute name="id" use="required">
+        <simpleType>
+          <restriction base="string">
+            <minLength value="1"></minLength>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="file" use="required">
+        <simpleType>
+          <restriction base="string">
+            <minLength value="1"></minLength>
+          </restriction>
+        </simpleType>
+      </attribute>
+    </complexType>
+</schema>

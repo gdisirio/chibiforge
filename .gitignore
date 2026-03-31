@@ -2,9 +2,6 @@
 target/
 cli/chibiforge.jar
 
-# Private documents
-specs/
-
 # IDE files
 .idea/
 *.iml
