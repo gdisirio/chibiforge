@@ -447,6 +447,13 @@ public class ConfigurationForm {
         return newEl;
     }
 
+    /**
+     * Refresh all property widgets for a new active target.
+     */
+    public void refreshForTarget(String target) {
+        widgetFactory.refreshForTarget(target);
+    }
+
     public VBox getRoot() { return root; }
     public ScrollPane getScrollPane() { return scrollPane; }
 

@@ -32,38 +32,31 @@ import org.w3c.dom.NodeList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
  * Creates JavaFX widgets for property definitions.
- * Each widget reads its initial value from the DOM and writes back on edit.
- * Supports @ref: resolution for defaults/constraints and @cond: for visibility/editability.
+ * Supports @ref:/@cond: resolution and multi-target property values.
  */
 public class PropertyWidgetFactory {
 
     private LiveDataModel liveModel;
     private Consumer<String> onDomUpdate;
+    private String activeTarget = "default";
 
-    // Track rows for re-evaluation
     private final List<ConditionBinding> conditionBindings = new ArrayList<>();
+    private final List<TargetBinding> targetBindings = new ArrayList<>();
 
-    public void setLiveModel(LiveDataModel liveModel) {
-        this.liveModel = liveModel;
-    }
-
-    /**
-     * Set callback invoked after a property value is written to the DOM.
-     * The parameter is the property name that changed.
-     */
-    public void setOnDomUpdate(Consumer<String> onDomUpdate) {
-        this.onDomUpdate = onDomUpdate;
-    }
+    public void setLiveModel(LiveDataModel liveModel) { this.liveModel = liveModel; }
+    public void setOnDomUpdate(Consumer<String> onDomUpdate) { this.onDomUpdate = onDomUpdate; }
+    public void setActiveTarget(String target) { this.activeTarget = target; }
 
     /**
-     * Create a labeled property row: label on left, widget on right.
+     * Create a labeled property row with multi-target indicator.
      */
     public Node createPropertyRow(PropertyDef prop, Element parentEl) {
-        // Label side
+        // Label
         Label nameLabel = new Label(prop.getName());
         nameLabel.getStyleClass().add("property-name");
         Label briefLabel = new Label(prop.getBrief());
@@ -73,16 +66,56 @@ public class PropertyWidgetFactory {
         labelBox.setMinWidth(200);
         labelBox.setPrefWidth(250);
 
-        // Widget side
-        Node widget = createWidget(prop, parentEl);
+        // Ensure property element exists in DOM
+        Element propEl = findOrCreatePropertyElement(parentEl, prop.getName(), prop.getDefaultValue());
+
+        // Widget
+        Node widget = createWidget(prop, propEl);
         HBox.setHgrow(widget, Priority.ALWAYS);
 
-        HBox row = new HBox(12, labelBox, widget);
+        // Multi-target indicator
+        boolean isMulti = MultiTargetHelper.isMultiTarget(propEl);
+        Label indicator = new Label(isMulti ? "\u25C6" : "\u25C7");
+        indicator.getStyleClass().add(isMulti ? "mt-indicator-active" : "mt-indicator");
+        indicator.setCursor(javafx.scene.Cursor.HAND);
+        Tooltip tooltip = buildTargetTooltip(propEl);
+        Tooltip.install(indicator, tooltip);
+
+        indicator.setOnMouseClicked(e -> {
+            if (MultiTargetHelper.isMultiTarget(propEl)) {
+                // Demote
+                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                        "Discard all per-target overrides and use only the default value?",
+                        ButtonType.OK, ButtonType.CANCEL);
+                confirm.setHeaderText(null);
+                confirm.showAndWait().ifPresent(btn -> {
+                    if (btn == ButtonType.OK) {
+                        MultiTargetHelper.demoteToSingleTarget(propEl);
+                        indicator.setText("\u25C7");
+                        indicator.getStyleClass().setAll("mt-indicator");
+                        refreshWidget(widget, prop, propEl);
+                        fireDomUpdate(prop.getName());
+                    }
+                });
+            } else {
+                // Promote
+                MultiTargetHelper.promoteToMultiTarget(propEl);
+                indicator.setText("\u25C6");
+                indicator.getStyleClass().setAll("mt-indicator-active");
+                fireDomUpdate(prop.getName());
+            }
+            Tooltip.install(indicator, buildTargetTooltip(propEl));
+        });
+
+        // Track for target switching
+        targetBindings.add(new TargetBinding(prop, propEl, widget, indicator));
+
+        HBox row = new HBox(8, labelBox, widget, indicator);
         row.setAlignment(Pos.CENTER_LEFT);
         row.setPadding(new Insets(4, 0, 4, 0));
         row.getStyleClass().add("property-row");
 
-        // Editability: static or @cond:
+        // Editability
         if (prop.hasEditableCondition()) {
             conditionBindings.add(new ConditionBinding(
                     prop.getEditableCondition(), widget, ConditionBinding.Type.EDITABLE));
@@ -90,7 +123,7 @@ public class PropertyWidgetFactory {
             widget.setDisable(true);
         }
 
-        // Visibility: static or @cond:
+        // Visibility
         if (prop.hasVisibleCondition()) {
             conditionBindings.add(new ConditionBinding(
                     prop.getVisibleCondition(), row, ConditionBinding.Type.VISIBLE));
@@ -99,16 +132,20 @@ public class PropertyWidgetFactory {
             row.setManaged(false);
         }
 
+        // Fallback style for multi-target
+        if (isMulti && MultiTargetHelper.isUsingFallback(propEl, activeTarget)) {
+            widget.setStyle("-fx-opacity: 0.7; -fx-font-style: italic;");
+        }
+
         return row;
     }
 
     /**
-     * Re-evaluate all @cond: expressions after a DOM update.
+     * Re-evaluate @cond: expressions.
      */
     public void reEvaluateConditions() {
         if (liveModel == null) return;
         liveModel.rebuildXPathDoc();
-
         for (ConditionBinding binding : conditionBindings) {
             boolean result = liveModel.evaluateCondition(binding.expression);
             if (binding.type == ConditionBinding.Type.VISIBLE) {
@@ -121,38 +158,73 @@ public class PropertyWidgetFactory {
     }
 
     /**
-     * Clear tracked condition bindings (call when loading a new component).
+     * Refresh all widget values for a new active target.
      */
-    public void clearBindings() {
-        conditionBindings.clear();
+    public void refreshForTarget(String newTarget) {
+        this.activeTarget = newTarget;
+        for (TargetBinding tb : targetBindings) {
+            refreshWidget(tb.widget, tb.prop, tb.propElement);
+
+            boolean isMulti = MultiTargetHelper.isMultiTarget(tb.propElement);
+            tb.indicator.setText(isMulti ? "\u25C6" : "\u25C7");
+            tb.indicator.getStyleClass().setAll(isMulti ? "mt-indicator-active" : "mt-indicator");
+            Tooltip.install(tb.indicator, buildTargetTooltip(tb.propElement));
+
+            if (isMulti && MultiTargetHelper.isUsingFallback(tb.propElement, activeTarget)) {
+                tb.widget.setStyle("-fx-opacity: 0.7; -fx-font-style: italic;");
+            } else {
+                tb.widget.setStyle("");
+            }
+        }
     }
 
-    private Node createWidget(PropertyDef prop, Element parentEl) {
-        // Resolve @ref: in default value
+    public void clearBindings() {
+        conditionBindings.clear();
+        targetBindings.clear();
+    }
+
+    // --- Widget creation ---
+
+    private Node createWidget(PropertyDef prop, Element propEl) {
         String resolvedDefault = resolveRef(prop.getDefaultValue());
-        String currentValue = getDomValue(prop.getName(), parentEl, resolvedDefault);
+        String currentValue = getResolvedValue(propEl, resolvedDefault);
 
         return switch (prop.getType()) {
-            case BOOL -> createBoolWidget(prop, parentEl, currentValue);
-            case STRING -> createStringWidget(prop, parentEl, currentValue);
-            case INT -> createIntWidget(prop, parentEl, currentValue);
-            case ENUM -> createEnumWidget(prop, parentEl, currentValue);
-            case TEXT -> createTextWidget(prop, parentEl, currentValue);
+            case BOOL -> createBoolWidget(prop, propEl, currentValue);
+            case STRING -> createStringWidget(prop, propEl, currentValue);
+            case INT -> createIntWidget(prop, propEl, currentValue);
+            case ENUM -> createEnumWidget(prop, propEl, currentValue);
+            case TEXT -> createTextWidget(prop, propEl, currentValue);
             case LIST -> createListPlaceholder(prop);
         };
     }
 
-    private Node createBoolWidget(PropertyDef prop, Element parentEl, String value) {
+    private void refreshWidget(Node widget, PropertyDef prop, Element propEl) {
+        String value = getResolvedValue(propEl, resolveRef(prop.getDefaultValue()));
+        if (widget instanceof CheckBox cb) {
+            cb.setSelected("true".equalsIgnoreCase(value));
+        } else if (widget instanceof TextField tf) {
+            tf.setText(value);
+        } else if (widget instanceof ComboBox<?>) {
+            @SuppressWarnings("unchecked")
+            ComboBox<String> combo = (ComboBox<String>) widget;
+            combo.setValue(value);
+        } else if (widget instanceof TextArea ta) {
+            ta.setText(value);
+        }
+    }
+
+    private Node createBoolWidget(PropertyDef prop, Element propEl, String value) {
         CheckBox cb = new CheckBox();
         cb.setSelected("true".equalsIgnoreCase(value));
         cb.setOnAction(e -> {
-            setDomValue(prop.getName(), parentEl, String.valueOf(cb.isSelected()));
+            writeValue(propEl, String.valueOf(cb.isSelected()));
             fireDomUpdate(prop.getName());
         });
         return cb;
     }
 
-    private Node createStringWidget(PropertyDef prop, Element parentEl, String value) {
+    private Node createStringWidget(PropertyDef prop, Element propEl, String value) {
         TextField field = new TextField(value);
         field.setPromptText(prop.getBrief());
         String regex = resolveRef(prop.getStringRegex());
@@ -164,17 +236,16 @@ public class PropertyWidgetFactory {
                     return;
                 }
                 field.getStyleClass().remove("field-error");
-                setDomValue(prop.getName(), parentEl, text);
+                writeValue(propEl, text);
                 fireDomUpdate(prop.getName());
             }
         });
         return field;
     }
 
-    private Node createIntWidget(PropertyDef prop, Element parentEl, String value) {
+    private Node createIntWidget(PropertyDef prop, Element propEl, String value) {
         TextField field = new TextField(value);
         field.setPrefWidth(120);
-        // Resolve @ref: in constraints
         String minStr = resolveRef(prop.getIntMin());
         String maxStr = resolveRef(prop.getIntMax());
         field.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
@@ -191,7 +262,7 @@ public class PropertyWidgetFactory {
                         return;
                     }
                     field.getStyleClass().remove("field-error");
-                    setDomValue(prop.getName(), parentEl, text);
+                    writeValue(propEl, text);
                     fireDomUpdate(prop.getName());
                 } catch (NumberFormatException e) {
                     field.getStyleClass().add("field-error");
@@ -201,9 +272,8 @@ public class PropertyWidgetFactory {
         return field;
     }
 
-    private Node createEnumWidget(PropertyDef prop, Element parentEl, String value) {
+    private Node createEnumWidget(PropertyDef prop, Element propEl, String value) {
         ComboBox<String> combo = new ComboBox<>();
-        // Resolve @ref: in enum_of
         String enumOf = resolveRef(prop.getEnumOf());
         if (enumOf != null) {
             for (String choice : enumOf.split(",")) {
@@ -214,14 +284,14 @@ public class PropertyWidgetFactory {
         combo.setOnAction(e -> {
             String selected = combo.getValue();
             if (selected != null) {
-                setDomValue(prop.getName(), parentEl, selected);
+                writeValue(propEl, selected);
                 fireDomUpdate(prop.getName());
             }
         });
         return combo;
     }
 
-    private Node createTextWidget(PropertyDef prop, Element parentEl, String value) {
+    private Node createTextWidget(PropertyDef prop, Element propEl, String value) {
         TextArea area = new TextArea(value);
         area.setPrefRowCount(5);
         area.setStyle("-fx-font-family: monospace;");
@@ -237,7 +307,7 @@ public class PropertyWidgetFactory {
                     }
                 }
                 area.getStyleClass().remove("field-error");
-                setDomValue(prop.getName(), parentEl, text);
+                writeValue(propEl, text);
                 fireDomUpdate(prop.getName());
             }
         });
@@ -245,9 +315,51 @@ public class PropertyWidgetFactory {
     }
 
     private Node createListPlaceholder(PropertyDef prop) {
-        Label label = new Label("[List: " + prop.getName() + " — M6]");
+        Label label = new Label("[List: " + prop.getName() + " — use table above]");
         label.getStyleClass().add("placeholder-text");
         return label;
+    }
+
+    // --- DOM helpers ---
+
+    private String getResolvedValue(Element propEl, String defaultValue) {
+        if (MultiTargetHelper.isMultiTarget(propEl)) {
+            return MultiTargetHelper.getValue(propEl, activeTarget);
+        }
+        String text = propEl.getTextContent().trim();
+        return text.isEmpty() ? (defaultValue != null ? defaultValue : "") : text;
+    }
+
+    private void writeValue(Element propEl, String value) {
+        if (MultiTargetHelper.isMultiTarget(propEl)) {
+            MultiTargetHelper.setValue(propEl, activeTarget, value);
+        } else {
+            propEl.setTextContent(value);
+        }
+    }
+
+    private Element findOrCreatePropertyElement(Element parentEl, String name, String defaultValue) {
+        NodeList nodes = parentEl.getElementsByTagName(name);
+        if (nodes.getLength() > 0) {
+            return (Element) nodes.item(0);
+        }
+        Element newEl = parentEl.getOwnerDocument().createElement(name);
+        newEl.setTextContent(defaultValue != null ? defaultValue : "");
+        parentEl.appendChild(newEl);
+        return newEl;
+    }
+
+    private Tooltip buildTargetTooltip(Element propEl) {
+        if (!MultiTargetHelper.isMultiTarget(propEl)) {
+            return new Tooltip("Single-target. Click to enable per-target values.");
+        }
+        Map<String, String> values = MultiTargetHelper.getAllTargetValues(propEl);
+        StringBuilder sb = new StringBuilder("Multi-target values:\n");
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            String marker = entry.getKey().equals(activeTarget) ? " \u25C0" : "";
+            sb.append("  ").append(entry.getKey()).append(": ").append(entry.getValue()).append(marker).append("\n");
+        }
+        return new Tooltip(sb.toString().trim());
     }
 
     private String resolveRef(String value) {
@@ -256,40 +368,34 @@ public class PropertyWidgetFactory {
         return value;
     }
 
-    private String getDomValue(String propertyName, Element parentEl, String defaultValue) {
-        NodeList nodes = parentEl.getElementsByTagName(propertyName);
-        if (nodes.getLength() > 0) {
-            return nodes.item(0).getTextContent().trim();
-        }
-        return defaultValue != null ? defaultValue : "";
-    }
-
-    private void setDomValue(String propertyName, Element parentEl, String value) {
-        NodeList nodes = parentEl.getElementsByTagName(propertyName);
-        if (nodes.getLength() > 0) {
-            nodes.item(0).setTextContent(value);
-        } else {
-            Element newEl = parentEl.getOwnerDocument().createElement(propertyName);
-            newEl.setTextContent(value);
-            parentEl.appendChild(newEl);
-        }
-    }
-
     private void fireDomUpdate(String propertyName) {
         if (onDomUpdate != null) onDomUpdate.accept(propertyName);
     }
 
-    /** Tracks a @cond: expression binding to a node. */
+    // --- Binding records ---
+
     private static class ConditionBinding {
         enum Type { VISIBLE, EDITABLE }
         final String expression;
         final Node node;
         final Type type;
-
         ConditionBinding(String expression, Node node, Type type) {
             this.expression = expression;
             this.node = node;
             this.type = type;
+        }
+    }
+
+    private static class TargetBinding {
+        final PropertyDef prop;
+        final Element propElement;
+        final Node widget;
+        final Label indicator;
+        TargetBinding(PropertyDef prop, Element propElement, Node widget, Label indicator) {
+            this.prop = prop;
+            this.propElement = propElement;
+            this.widget = widget;
+            this.indicator = indicator;
         }
     }
 }

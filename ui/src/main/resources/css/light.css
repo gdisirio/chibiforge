@@ -141,6 +141,17 @@
     -fx-border-width: 1;
 }
 
+/* Multi-target indicator */
+.mt-indicator {
+    -fx-text-fill: #bbbbbb;
+    -fx-font-size: 14px;
+}
+
+.mt-indicator-active {
+    -fx-text-fill: #4a90d9;
+    -fx-font-size: 14px;
+}
+
 /* Images */
 .image-caption {
     -fx-text-fill: #777777;

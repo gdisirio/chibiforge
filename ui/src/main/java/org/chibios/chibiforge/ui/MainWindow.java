@@ -35,6 +35,7 @@ import org.chibios.chibiforge.ui.center.BreadcrumbBar;
 import org.chibios.chibiforge.ui.center.ComponentsView;
 import org.chibios.chibiforge.ui.center.ConfigurationForm;
 import org.chibios.chibiforge.ui.inspector.InspectorPanel;
+import org.chibios.chibiforge.ui.targets.ManageTargetsDialog;
 import org.chibios.chibiforge.ui.model.AppModel;
 import org.chibios.chibiforge.ui.palette.ComponentPalette;
 
@@ -84,12 +85,6 @@ public class MainWindow {
         targetSelector.getSelectionModel().selectFirst();
         targetSelector.setPrefWidth(150);
 
-        // Bind target selector to model
-        targetSelector.setOnAction(e -> {
-            String selected = targetSelector.getSelectionModel().getSelectedItem();
-            if (selected != null) model.setActiveTarget(selected);
-        });
-
         // Toolbar
         inspectorToggle = new ToggleButton("Inspector");
         inspectorToggle.setSelected(true);
@@ -112,6 +107,15 @@ public class MainWindow {
 
         // Configuration form
         configForm = new ConfigurationForm(model);
+        // Bind target selector to model (after configForm is created)
+        targetSelector.setOnAction(e -> {
+            String selected = targetSelector.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                model.setActiveTarget(selected);
+                configForm.refreshForTarget(selected);
+            }
+        });
+
         configForm.setOnListDrillDown(dd -> {
             // Navigate into list item
             breadcrumb.setPath(
@@ -369,6 +373,22 @@ public class MainWindow {
         }
     }
 
+    private void showManageTargetsDialog() {
+        ManageTargetsDialog dialog = new ManageTargetsDialog(model.getTargets());
+        dialog.showAndWait().ifPresent(newTargets -> {
+            String previousTarget = model.getActiveTarget();
+            model.getTargets().setAll(newTargets);
+            targetSelector.getItems().setAll(newTargets);
+            if (newTargets.contains(previousTarget)) {
+                targetSelector.getSelectionModel().select(previousTarget);
+            } else {
+                targetSelector.getSelectionModel().select("default");
+                model.setActiveTarget("default");
+            }
+            model.setModified(true);
+        });
+    }
+
     private MenuBar createMenuBar() {
         Menu fileMenu = new Menu("_File");
         MenuItem openItem = new MenuItem("Open...");
@@ -428,6 +448,11 @@ public class MainWindow {
         generateBtn.getStyleClass().add("accent-button");
         Button cleanBtn = new Button("Clean");
         Label targetLabel = new Label("Target:");
+
+        Button manageTargetsBtn = new Button("\u2699");
+        manageTargetsBtn.setTooltip(new Tooltip("Manage Targets..."));
+        manageTargetsBtn.setOnAction(e -> showManageTargetsDialog());
+
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
@@ -435,7 +460,7 @@ public class MainWindow {
                 saveBtn, sep1,
                 generateBtn, cleanBtn,
                 new Separator(),
-                targetLabel, targetSelector,
+                targetLabel, targetSelector, manageTargetsBtn,
                 spacer,
                 inspectorToggle
         );
