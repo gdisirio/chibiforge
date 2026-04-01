@@ -4,7 +4,7 @@
     id="org.chibios.kernel.port.stm32f4xx"
     name="ChibiOS-RT STM32F4xx Kernel Port"
     version="1.0.0"
-    hidden="true"
+    hidden="false"
     is_platform="false">
 
   <description>Kernel GCC port layer for ARM Cortex-M4 on the STM32F4xx.</description>

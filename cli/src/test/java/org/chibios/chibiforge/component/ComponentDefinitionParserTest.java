@@ -44,7 +44,7 @@ class ComponentDefinitionParserTest {
         assertThat(def.getId()).isEqualTo("org.chibios.hal.stm32f4xx");
         assertThat(def.getName()).isEqualTo("HAL STM32F4xx");
         assertThat(def.getVersion()).isEqualTo("1.0.0");
-        assertThat(def.isHidden()).isTrue();
+        assertThat(def.isHidden()).isFalse();
         assertThat(def.isPlatform()).isFalse();
     }
 

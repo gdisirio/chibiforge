@@ -4,7 +4,7 @@
     id="org.chibios.hal.stm32f4xx"
     name="HAL STM32F4xx"
     version="1.0.0"
-    hidden="true"
+    hidden="false"
     is_platform="false">
 
   <description>HAL configuration for STM32F4xx devices.</description>

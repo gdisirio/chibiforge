@@ -22,15 +22,26 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import org.chibios.chibiforge.config.ChibiForgeConfiguration;
+import org.chibios.chibiforge.config.ConfigLoader;
+import org.chibios.chibiforge.feature.FeatureChecker;
+import org.chibios.chibiforge.registry.ComponentRegistry;
+import org.chibios.chibiforge.ui.model.AppModel;
+import org.chibios.chibiforge.ui.palette.ComponentPalette;
+
+import java.io.File;
+import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Main application window layout.
- * Three-panel layout: palette (left), center content, inspector (right).
  */
 public class MainWindow {
 
     private final Stage stage;
+    private final AppModel model;
     private final BorderPane root;
 
     // Top
@@ -40,17 +51,18 @@ public class MainWindow {
     private final ToggleButton inspectorToggle;
 
     // Panels
-    private final VBox palettePanel;
+    private final ComponentPalette palette;
     private final StackPane centerPanel;
     private final VBox inspectorPanel;
+    private final SplitPane splitPane;
 
     // Status bar
-    private final HBox statusBar;
     private final Label statusLeft;
     private final Label statusRight;
 
-    public MainWindow(Stage stage) {
+    public MainWindow(Stage stage, AppModel model) {
         this.stage = stage;
+        this.model = model;
 
         // Menu bar
         menuBar = createMenuBar();
@@ -61,59 +73,42 @@ public class MainWindow {
         targetSelector.getSelectionModel().selectFirst();
         targetSelector.setPrefWidth(150);
 
+        // Bind target selector to model
+        targetSelector.setOnAction(e -> {
+            String selected = targetSelector.getSelectionModel().getSelectedItem();
+            if (selected != null) model.setActiveTarget(selected);
+        });
+
         // Toolbar
         inspectorToggle = new ToggleButton("Inspector");
         inspectorToggle.setSelected(true);
         toolBar = createToolBar();
 
-        // Top container
         VBox topContainer = new VBox(menuBar, toolBar);
 
-        // Left panel — component palette placeholder
-        palettePanel = new VBox();
-        palettePanel.setPrefWidth(250);
-        palettePanel.setMinWidth(200);
-        palettePanel.getStyleClass().add("palette-panel");
-        Label paletteHeader = new Label("Available Components");
-        paletteHeader.getStyleClass().add("panel-header");
-        paletteHeader.setPadding(new Insets(8));
-        palettePanel.getChildren().add(paletteHeader);
+        // Left panel — component palette
+        palette = new ComponentPalette(model);
 
-        // Center panel placeholder
+        // Center panel
         centerPanel = new StackPane();
         centerPanel.getStyleClass().add("center-panel");
         Label placeholder = new Label("Open a configuration file to begin");
         placeholder.getStyleClass().add("placeholder-text");
         centerPanel.getChildren().add(placeholder);
 
-        // Right panel — inspector placeholder
-        inspectorPanel = new VBox();
-        inspectorPanel.setPrefWidth(300);
-        inspectorPanel.setMinWidth(200);
-        inspectorPanel.getStyleClass().add("inspector-panel");
-        Label inspectorHeader = new Label("Inspector");
-        inspectorHeader.getStyleClass().add("panel-header");
-        inspectorHeader.setPadding(new Insets(8));
-        TabPane inspectorTabs = new TabPane(
-                new Tab("Outline", new Label("Outline")),
-                new Tab("Help", new Label("Help")),
-                new Tab("Files", new Label("Files")),
-                new Tab("Log", new Label("Log"))
-        );
-        inspectorTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        inspectorPanel.getChildren().addAll(inspectorHeader, inspectorTabs);
-        VBox.setVgrow(inspectorTabs, Priority.ALWAYS);
+        // Right panel — inspector
+        inspectorPanel = createInspectorPanel();
 
         // Status bar
         statusLeft = new Label("No configuration loaded");
         statusRight = new Label("Saved");
-        statusBar = createStatusBar();
+        HBox statusBar = createStatusBar();
 
         // Main layout
-        SplitPane splitPane = new SplitPane(palettePanel, centerPanel, inspectorPanel);
+        splitPane = new SplitPane(palette.getRoot(), centerPanel, inspectorPanel);
         splitPane.setDividerPositions(0.2, 0.75);
 
-        // Inspector toggle: add/remove from SplitPane
+        // Inspector toggle
         inspectorToggle.setOnAction(e -> {
             if (inspectorToggle.isSelected()) {
                 splitPane.getItems().add(inspectorPanel);
@@ -127,14 +122,123 @@ public class MainWindow {
         root.setTop(topContainer);
         root.setCenter(splitPane);
         root.setBottom(statusBar);
+
+        // Bind title bar to config file path
+        model.configFileProperty().addListener((obs, old, path) -> {
+            stage.setTitle(path != null ? "ChibiForge - " + path : "ChibiForge");
+        });
+
+        // Bind status bar to model
+        model.modifiedProperty().addListener((obs, old, mod) -> {
+            statusRight.setText(mod ? "Modified" : "Saved");
+        });
+    }
+
+    /**
+     * Open a configuration file and load it into the model.
+     */
+    public void openConfiguration(Path configFile) {
+        try {
+            ConfigLoader loader = new ConfigLoader();
+            ChibiForgeConfiguration config = loader.load(configFile);
+
+            Path configRoot = configFile.getParent();
+            if (configRoot == null) configRoot = Path.of(".");
+
+            model.setConfigFile(configFile.toAbsolutePath());
+            model.setConfigRoot(configRoot.toAbsolutePath());
+            model.setConfiguration(config);
+            model.setModified(false);
+
+            // Update targets
+            model.getTargets().setAll(config.getTargets());
+            targetSelector.getItems().setAll(config.getTargets());
+            targetSelector.getSelectionModel().select(model.getActiveTarget());
+
+            // Build component registry
+            ComponentRegistry registry = ComponentRegistry.build(
+                    model.getComponentsRoot(), model.getPluginsRoot());
+            model.setRegistry(registry);
+
+            // Check feature dependencies
+            model.getWarnings().clear();
+            FeatureChecker checker = new FeatureChecker();
+            var definitions = new java.util.ArrayList<org.chibios.chibiforge.component.ComponentDefinition>();
+            for (var entry : config.getComponents()) {
+                try {
+                    var container = registry.lookup(entry.getComponentId());
+                    definitions.add(container.loadDefinition());
+                } catch (Exception ignored) {
+                    // Component not found — will show as warning
+                }
+            }
+            List<String> warnings = checker.check(definitions);
+            model.getWarnings().setAll(warnings);
+
+            // Update palette
+            palette.refresh();
+
+            // Update status
+            int compCount = config.getComponents().size();
+            int regCount = registry.size();
+            statusLeft.setText(compCount + " component(s) configured, " +
+                    regCount + " available, target: " + model.getActiveTarget());
+
+            if (!warnings.isEmpty()) {
+                statusRight.setText(warnings.size() + " warning(s)");
+            }
+
+            // Update center panel
+            centerPanel.getChildren().clear();
+            Label loaded = new Label("Configuration loaded: " + compCount + " component(s)");
+            loaded.getStyleClass().add("placeholder-text");
+            centerPanel.getChildren().add(loaded);
+
+        } catch (Exception e) {
+            Alert alert = new Alert(Alert.AlertType.ERROR,
+                    "Failed to open configuration:\n" + e.getMessage(),
+                    ButtonType.OK);
+            alert.setTitle("Error");
+            alert.showAndWait();
+        }
+    }
+
+    private VBox createInspectorPanel() {
+        VBox panel = new VBox();
+        panel.setPrefWidth(300);
+        panel.setMinWidth(200);
+        panel.getStyleClass().add("inspector-panel");
+        Label header = new Label("Inspector");
+        header.getStyleClass().add("panel-header");
+        header.setPadding(new Insets(8));
+        TabPane tabs = new TabPane(
+                new Tab("Outline", new Label("Outline")),
+                new Tab("Help", new Label("Help")),
+                new Tab("Files", new Label("Files")),
+                new Tab("Log", new Label("Log"))
+        );
+        tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        panel.getChildren().addAll(header, tabs);
+        VBox.setVgrow(tabs, Priority.ALWAYS);
+        return panel;
     }
 
     private MenuBar createMenuBar() {
-        // File menu
         Menu fileMenu = new Menu("_File");
+        MenuItem openItem = new MenuItem("Open...");
+        openItem.setOnAction(e -> {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Open ChibiForge Configuration");
+            chooser.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter("ChibiForge Configuration", "*.xcfg"));
+            File file = chooser.showOpenDialog(stage);
+            if (file != null) {
+                openConfiguration(file.toPath());
+            }
+        });
         fileMenu.getItems().addAll(
                 new MenuItem("New"),
-                new MenuItem("Open..."),
+                openItem,
                 new SeparatorMenuItem(),
                 new MenuItem("Save"),
                 new MenuItem("Save As..."),
@@ -142,7 +246,6 @@ public class MainWindow {
                 new MenuItem("Exit")
         );
 
-        // Edit menu
         Menu editMenu = new Menu("_Edit");
         editMenu.getItems().addAll(
                 new MenuItem("Undo"),
@@ -151,21 +254,18 @@ public class MainWindow {
                 new MenuItem("Preferences...")
         );
 
-        // Components menu
         Menu componentsMenu = new Menu("_Components");
         componentsMenu.getItems().addAll(
                 new MenuItem("Add Component"),
                 new MenuItem("Remove Component")
         );
 
-        // Generate menu
         Menu generateMenu = new Menu("_Generate");
         generateMenu.getItems().addAll(
                 new MenuItem("Generate"),
                 new MenuItem("Clean")
         );
 
-        // Help menu
         Menu helpMenu = new Menu("_Help");
         helpMenu.getItems().addAll(
                 new MenuItem("About"),
@@ -181,9 +281,7 @@ public class MainWindow {
         Button generateBtn = new Button("Generate");
         generateBtn.getStyleClass().add("accent-button");
         Button cleanBtn = new Button("Clean");
-
         Label targetLabel = new Label("Target:");
-
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
@@ -202,20 +300,15 @@ public class MainWindow {
         bar.getStyleClass().add("status-bar");
         bar.setPadding(new Insets(4, 8, 4, 8));
         bar.setAlignment(Pos.CENTER_LEFT);
-
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-
         bar.getChildren().addAll(statusLeft, spacer, statusRight);
         return bar;
     }
 
     public BorderPane getRoot() { return root; }
     public Stage getStage() { return stage; }
-    public ComboBox<String> getTargetSelector() { return targetSelector; }
-    public Label getStatusLeft() { return statusLeft; }
-    public Label getStatusRight() { return statusRight; }
+    public AppModel getModel() { return model; }
     public StackPane getCenterPanel() { return centerPanel; }
-    public VBox getPalettePanel() { return palettePanel; }
-    public VBox getInspectorPanel() { return inspectorPanel; }
+    public ComponentPalette getPalette() { return palette; }
 }

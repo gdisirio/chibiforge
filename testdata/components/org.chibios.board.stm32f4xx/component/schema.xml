@@ -4,7 +4,7 @@
     id="org.chibios.board.stm32f4xx"
     name="ChibiOS-RT STM32F4xx Board"
     version="1.0.0"
-    hidden="true"
+    hidden="false"
     is_platform="false">
 
   <description>ChibiOS/RT STM32F4xx board description files.</description>
