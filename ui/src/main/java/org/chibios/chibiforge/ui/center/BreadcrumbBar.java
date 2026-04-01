@@ -74,6 +74,7 @@ public class BreadcrumbBar extends HBox {
     }
 
     public int getDepth() { return segments.size(); }
+    public List<String> getSegments() { return List.copyOf(segments); }
 
     private void rebuild() {
         getChildren().clear();

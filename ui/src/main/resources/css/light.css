@@ -140,3 +140,10 @@
     -fx-border-color: #cc3333;
     -fx-border-width: 1;
 }
+
+/* Images */
+.image-caption {
+    -fx-text-fill: #777777;
+    -fx-font-size: 11px;
+    -fx-font-style: italic;
+}

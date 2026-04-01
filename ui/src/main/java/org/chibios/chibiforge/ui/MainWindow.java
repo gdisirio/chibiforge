@@ -64,6 +64,7 @@ public class MainWindow {
     private final BreadcrumbBar breadcrumb;
     private final ComponentsView componentsView;
     private final ConfigurationForm configForm;
+    private String lastViewedComponentId;
 
     // Status bar
     private final Label statusLeft;
@@ -101,11 +102,23 @@ public class MainWindow {
         // Breadcrumb
         breadcrumb = new BreadcrumbBar();
         breadcrumb.setOnNavigate(index -> {
-            if (index == 0) showComponentsView();
+            if (index == 0) {
+                showComponentsView();
+            } else if (index == 1 && lastViewedComponentId != null) {
+                showConfigurationForm(lastViewedComponentId);
+            }
         });
 
         // Configuration form
         configForm = new ConfigurationForm(model);
+        configForm.setOnListDrillDown(dd -> {
+            // Navigate into list item
+            breadcrumb.setPath(
+                    breadcrumb.getSegments().get(0),
+                    breadcrumb.getSegments().size() > 1 ? breadcrumb.getSegments().get(1) : "?",
+                    dd.listProperty.getName() + " [" + dd.itemIndex + "]");
+            configForm.loadListItem(dd.listProperty, dd.itemElement);
+        });
 
         // Components view
         componentsView = new ComponentsView(model);
@@ -248,6 +261,7 @@ public class MainWindow {
      * Show the configuration form for a specific component.
      */
     private void showConfigurationForm(String componentId) {
+        lastViewedComponentId = componentId;
         try {
             ComponentContainer container = model.getRegistry().lookup(componentId);
             ComponentDefinition def = container.loadDefinition();

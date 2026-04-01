@@ -39,22 +39,24 @@
                 brief="MCU voltage in hundredths of Volt."
                 required="true" editable="true" default="300"
                 int_min="180" int_max="360"/>
-      <property name="hse_oscillator_mode" type="enum"
-                brief="HSE Oscillator Mode."
-                required="true" editable="true" default="Crystal"
-                enum_of="Crystal,Bypass,None"/>
-      <property name="hse_frequency" type="int"
-                brief="HSE frequency in Hz, unused if mode is set to None."
-                required="true" editable="true" default="8000000"
-                int_min="1000000" int_max="26000000"/>
-      <property name="lse_oscillator_mode" type="enum"
-                brief="LSE Oscillator Mode."
-                required="true" editable="true" default="Crystal"
-                enum_of="Crystal,Bypass,None"/>
-      <property name="lse_frequency" type="int"
-                brief="LSE frequency in Hz, unused if mode is set to None."
-                required="true" editable="true" default="32768"
-                int_min="32768" int_max="1000000"/>
+      <layout columns="2" align="left">
+        <property name="hse_oscillator_mode" type="enum"
+                  brief="HSE Oscillator Mode."
+                  required="true" editable="true" default="Crystal"
+                  enum_of="Crystal,Bypass,None"/>
+        <property name="hse_frequency" type="int"
+                  brief="HSE frequency in Hz, unused if mode is set to None."
+                  required="true" editable="true" default="8000000"
+                  int_min="1000000" int_max="26000000"/>
+        <property name="lse_oscillator_mode" type="enum"
+                  brief="LSE Oscillator Mode."
+                  required="true" editable="true" default="Crystal"
+                  enum_of="Crystal,Bypass,None"/>
+        <property name="lse_frequency" type="int"
+                  brief="LSE frequency in Hz, unused if mode is set to None."
+                  required="true" editable="true" default="32768"
+                  int_min="32768" int_max="1000000"/>
+      </layout>
     </section>
 
     <section name="PHY Settings" expanded="true">
