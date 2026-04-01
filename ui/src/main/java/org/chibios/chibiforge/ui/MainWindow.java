@@ -34,6 +34,7 @@ import org.chibios.chibiforge.registry.ComponentRegistry;
 import org.chibios.chibiforge.ui.center.BreadcrumbBar;
 import org.chibios.chibiforge.ui.center.ComponentsView;
 import org.chibios.chibiforge.ui.center.ConfigurationForm;
+import org.chibios.chibiforge.ui.inspector.InspectorPanel;
 import org.chibios.chibiforge.ui.model.AppModel;
 import org.chibios.chibiforge.ui.palette.ComponentPalette;
 
@@ -59,7 +60,7 @@ public class MainWindow {
     // Panels
     private final ComponentPalette palette;
     private final StackPane centerPanel;
-    private final VBox inspectorPanel;
+    private final InspectorPanel inspector;
     private final SplitPane splitPane;
     private final BreadcrumbBar breadcrumb;
     private final ComponentsView componentsView;
@@ -135,7 +136,7 @@ public class MainWindow {
         VBox.setVgrow(centerPanel, Priority.ALWAYS);
 
         // Right panel — inspector
-        inspectorPanel = createInspectorPanel();
+        inspector = new InspectorPanel(model);
 
         // Status bar
         statusLeft = new Label("No configuration loaded");
@@ -143,16 +144,16 @@ public class MainWindow {
         HBox statusBar = createStatusBar();
 
         // Main layout
-        splitPane = new SplitPane(palette.getRoot(), centerContainer, inspectorPanel);
+        splitPane = new SplitPane(palette.getRoot(), centerContainer, inspector.getRoot());
         splitPane.setDividerPositions(0.15, 0.78);
 
         // Inspector toggle
         inspectorToggle.setOnAction(e -> {
             if (inspectorToggle.isSelected()) {
-                splitPane.getItems().add(inspectorPanel);
+                splitPane.getItems().add(inspector.getRoot());
                 splitPane.setDividerPosition(splitPane.getDividers().size() - 1, 0.75);
             } else {
-                splitPane.getItems().remove(inspectorPanel);
+                splitPane.getItems().remove(inspector.getRoot());
             }
         });
 
@@ -254,6 +255,9 @@ public class MainWindow {
         centerPanel.getChildren().clear();
         centerPanel.getChildren().add(componentsView.getRoot());
         componentsView.refresh();
+        inspector.showComponentsOutline();
+        inspector.showConfigurationHelp();
+        inspector.refreshFiles();
         updateStatusBar();
     }
 
@@ -281,6 +285,9 @@ public class MainWindow {
 
             centerPanel.getChildren().clear();
             centerPanel.getChildren().add(configForm.getRoot());
+
+            inspector.showComponentOutline(def);
+            inspector.showComponentHelp(def);
         } catch (Exception e) {
             Alert alert = new Alert(Alert.AlertType.ERROR,
                     "Failed to load component form:\n" + e.getMessage(), ButtonType.OK);
@@ -360,26 +367,6 @@ public class MainWindow {
         if (!model.getWarnings().isEmpty()) {
             statusRight.setText(model.getWarnings().size() + " warning(s)");
         }
-    }
-
-    private VBox createInspectorPanel() {
-        VBox panel = new VBox();
-        panel.setPrefWidth(300);
-        panel.setMinWidth(200);
-        panel.getStyleClass().add("inspector-panel");
-        Label header = new Label("Inspector");
-        header.getStyleClass().add("panel-header");
-        header.setPadding(new Insets(8));
-        TabPane tabs = new TabPane(
-                new Tab("Outline", new Label("Outline")),
-                new Tab("Help", new Label("Help")),
-                new Tab("Files", new Label("Files")),
-                new Tab("Log", new Label("Log"))
-        );
-        tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        panel.getChildren().addAll(header, tabs);
-        VBox.setVgrow(tabs, Priority.ALWAYS);
-        return panel;
     }
 
     private MenuBar createMenuBar() {
