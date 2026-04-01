@@ -104,10 +104,6 @@ public class MainWindow {
         inspectorPanel.getChildren().addAll(inspectorHeader, inspectorTabs);
         VBox.setVgrow(inspectorTabs, Priority.ALWAYS);
 
-        // Inspector toggle
-        inspectorToggle.setOnAction(e -> inspectorPanel.setVisible(inspectorToggle.isSelected()));
-        inspectorPanel.managedProperty().bind(inspectorPanel.visibleProperty());
-
         // Status bar
         statusLeft = new Label("No configuration loaded");
         statusRight = new Label("Saved");
@@ -116,6 +112,16 @@ public class MainWindow {
         // Main layout
         SplitPane splitPane = new SplitPane(palettePanel, centerPanel, inspectorPanel);
         splitPane.setDividerPositions(0.2, 0.75);
+
+        // Inspector toggle: add/remove from SplitPane
+        inspectorToggle.setOnAction(e -> {
+            if (inspectorToggle.isSelected()) {
+                splitPane.getItems().add(inspectorPanel);
+                splitPane.setDividerPosition(splitPane.getDividers().size() - 1, 0.75);
+            } else {
+                splitPane.getItems().remove(inspectorPanel);
+            }
+        });
 
         root = new BorderPane();
         root.setTop(topContainer);
