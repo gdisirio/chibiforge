@@ -166,21 +166,15 @@
       <attribute name="editable" use="required">
         <simpleType>
           <restriction base="string">
-            <enumeration value="false"></enumeration>
-            <enumeration value="true"></enumeration>
           </restriction>
         </simpleType>
       </attribute>
-      <attribute name="editable_if" type="string"></attribute>
       <attribute name="visible" use="required">
         <simpleType>
           <restriction base="string">
-            <enumeration value="false"></enumeration>
-            <enumeration value="true"></enumeration>
           </restriction>
         </simpleType>
       </attribute>
-      <attribute name="visible_if" type="string"></attribute>
       <attribute name="string_regex">
         <annotation>
           <documentation>Regex for validating string properties.</documentation>
