@@ -35,11 +35,17 @@ import org.chibios.chibiforge.ui.center.BreadcrumbBar;
 import org.chibios.chibiforge.ui.center.ComponentsView;
 import org.chibios.chibiforge.ui.center.ConfigurationForm;
 import org.chibios.chibiforge.ui.inspector.InspectorPanel;
+import org.chibios.chibiforge.ui.io.XcfgWriter;
 import org.chibios.chibiforge.ui.targets.ManageTargetsDialog;
 import org.chibios.chibiforge.ui.model.AppModel;
 import org.chibios.chibiforge.ui.palette.ComponentPalette;
+import org.chibios.chibiforge.generator.GenerationAction;
+import org.chibios.chibiforge.generator.GenerationContext;
+import org.chibios.chibiforge.generator.GenerationReport;
+import org.chibios.chibiforge.generator.GeneratorEngine;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -171,6 +177,26 @@ public class MainWindow {
             if (e.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
                 breadcrumb.navigateUp();
                 e.consume();
+            }
+        });
+
+        // Close confirmation
+        stage.setOnCloseRequest(e -> {
+            if (model.isModified()) {
+                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                        "Save changes before closing?",
+                        new ButtonType("Save", ButtonBar.ButtonData.YES),
+                        new ButtonType("Don't Save", ButtonBar.ButtonData.NO),
+                        ButtonType.CANCEL);
+                confirm.setHeaderText(null);
+                var result = confirm.showAndWait();
+                if (result.isEmpty() || result.get() == ButtonType.CANCEL) {
+                    e.consume();
+                    return;
+                }
+                if (result.get().getButtonData() == ButtonBar.ButtonData.YES) {
+                    saveConfiguration();
+                }
             }
         });
 
@@ -373,6 +399,116 @@ public class MainWindow {
         }
     }
 
+    private void saveConfiguration() {
+        if (model.getConfigFile() == null || model.getConfiguration() == null) return;
+
+        try {
+            // Get the document root from any component's config element
+            var components = model.getConfiguration().getComponents();
+            if (components.isEmpty()) return;
+            var element = components.get(0).getConfigElement();
+            // Navigate up to the document root element
+            var docElement = element.getOwnerDocument().getDocumentElement();
+
+            XcfgWriter writer = new XcfgWriter();
+            writer.save(docElement, model.getConfigFile());
+            model.setModified(false);
+            inspector.appendLog("Saved: " + model.getConfigFile());
+        } catch (Exception e) {
+            Alert alert = new Alert(Alert.AlertType.ERROR,
+                    "Failed to save:\n" + e.getMessage(), ButtonType.OK);
+            alert.showAndWait();
+        }
+    }
+
+    private void runGenerate() {
+        if (model.getConfigFile() == null) return;
+
+        // Prompt to save if modified
+        if (model.isModified()) {
+            Alert savePrompt = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Save changes before generating?",
+                    new ButtonType("Save", ButtonBar.ButtonData.YES),
+                    new ButtonType("Don't Save", ButtonBar.ButtonData.NO),
+                    ButtonType.CANCEL);
+            savePrompt.setHeaderText(null);
+            var result = savePrompt.showAndWait();
+            if (result.isEmpty() || result.get() == ButtonType.CANCEL) return;
+            if (result.get().getButtonData() == ButtonBar.ButtonData.YES) {
+                saveConfiguration();
+            }
+        }
+
+        inspector.showLogTab();
+        inspector.appendLog("--- Generate started: target=" + model.getActiveTarget() + " ---");
+
+        try {
+            GenerationContext ctx = new GenerationContext(
+                    model.getConfigFile(), model.getConfigRoot(),
+                    model.getActiveTarget(), false, true);
+            GeneratorEngine engine = new GeneratorEngine();
+            GenerationReport report = engine.generate(ctx,
+                    model.getComponentsRoot(), model.getPluginsRoot());
+
+            for (var action : report.getActions()) {
+                inspector.appendLog("  " + action);
+            }
+            for (String warning : report.getWarnings()) {
+                inspector.appendLog("  WARNING: " + warning);
+            }
+            inspector.appendLog("Generation complete: " +
+                    report.countByType(GenerationAction.Type.COPY) + " copied, " +
+                    report.countByType(GenerationAction.Type.SKIP) + " skipped, " +
+                    report.countByType(GenerationAction.Type.TEMPLATE) + " templates.");
+
+            inspector.refreshFiles();
+            statusRight.setText("Generated");
+        } catch (Exception e) {
+            inspector.appendLog("ERROR: " + e.getMessage());
+            Alert alert = new Alert(Alert.AlertType.ERROR,
+                    "Generation failed:\n" + e.getMessage(), ButtonType.OK);
+            alert.showAndWait();
+        }
+    }
+
+    private void runClean() {
+        if (model.getConfigRoot() == null) return;
+
+        java.nio.file.Path generatedDir = model.getConfigRoot().resolve("generated");
+        if (!Files.isDirectory(generatedDir)) {
+            inspector.appendLog("Nothing to clean: generated/ does not exist.");
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "Delete all files in generated/? This cannot be undone.",
+                ButtonType.OK, ButtonType.CANCEL);
+        confirm.setHeaderText(null);
+        confirm.showAndWait().ifPresent(btn -> {
+            if (btn == ButtonType.OK) {
+                try {
+                    deleteRecursive(generatedDir);
+                    inspector.showLogTab();
+                    inspector.appendLog("Cleaned: " + generatedDir);
+                    inspector.refreshFiles();
+                    statusRight.setText("Cleaned");
+                } catch (Exception e) {
+                    inspector.appendLog("ERROR: " + e.getMessage());
+                }
+            }
+        });
+    }
+
+    private void deleteRecursive(java.nio.file.Path dir) throws Exception {
+        if (!Files.exists(dir)) return;
+        try (var walk = Files.walk(dir)) {
+            walk.sorted(java.util.Comparator.reverseOrder())
+                .forEach(p -> {
+                    try { Files.delete(p); } catch (Exception ignored) {}
+                });
+        }
+    }
+
     private void showManageTargetsDialog() {
         ManageTargetsDialog dialog = new ManageTargetsDialog(model.getTargets());
         dialog.showAndWait().ifPresent(newTargets -> {
@@ -402,14 +538,21 @@ public class MainWindow {
                 openConfiguration(file.toPath());
             }
         });
+        MenuItem saveItem = new MenuItem("Save");
+        saveItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+S"));
+        saveItem.setOnAction(e -> saveConfiguration());
+
+        MenuItem exitItem = new MenuItem("Exit");
+        exitItem.setOnAction(e -> stage.close());
+
         fileMenu.getItems().addAll(
                 new MenuItem("New"),
                 openItem,
                 new SeparatorMenuItem(),
-                new MenuItem("Save"),
+                saveItem,
                 new MenuItem("Save As..."),
                 new SeparatorMenuItem(),
-                new MenuItem("Exit")
+                exitItem
         );
 
         Menu editMenu = new Menu("_Edit");
@@ -426,11 +569,14 @@ public class MainWindow {
                 new MenuItem("Remove Component")
         );
 
+        MenuItem generateItem = new MenuItem("Generate");
+        generateItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+G"));
+        generateItem.setOnAction(e -> runGenerate());
+        MenuItem cleanItem = new MenuItem("Clean");
+        cleanItem.setOnAction(e -> runClean());
+
         Menu generateMenu = new Menu("_Generate");
-        generateMenu.getItems().addAll(
-                new MenuItem("Generate"),
-                new MenuItem("Clean")
-        );
+        generateMenu.getItems().addAll(generateItem, cleanItem);
 
         Menu helpMenu = new Menu("_Help");
         helpMenu.getItems().addAll(
@@ -443,10 +589,13 @@ public class MainWindow {
 
     private ToolBar createToolBar() {
         Button saveBtn = new Button("Save");
+        saveBtn.setOnAction(e -> saveConfiguration());
         Separator sep1 = new Separator();
         Button generateBtn = new Button("Generate");
         generateBtn.getStyleClass().add("accent-button");
+        generateBtn.setOnAction(e -> runGenerate());
         Button cleanBtn = new Button("Clean");
+        cleanBtn.setOnAction(e -> runClean());
         Label targetLabel = new Label("Target:");
 
         Button manageTargetsBtn = new Button("\u2699");
