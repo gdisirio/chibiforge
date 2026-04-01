@@ -1,0 +1,49 @@
+/* ChibiForge Light Theme */
+
+.root {
+    -fx-font-family: "System";
+    -fx-font-size: 13px;
+    -fx-background-color: #f5f5f5;
+}
+
+/* Panels */
+.palette-panel {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 0 1 0 0;
+}
+
+.center-panel {
+    -fx-background-color: #fafafa;
+}
+
+.inspector-panel {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 0 0 0 1;
+}
+
+.panel-header {
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-text-fill: #333333;
+}
+
+.placeholder-text {
+    -fx-text-fill: #999999;
+    -fx-font-size: 14px;
+}
+
+/* Status bar */
+.status-bar {
+    -fx-background-color: #e8e8e8;
+    -fx-border-color: #d0d0d0;
+    -fx-border-width: 1 0 0 0;
+    -fx-font-size: 12px;
+}
+
+/* Accent button (Generate) */
+.accent-button {
+    -fx-base: #4a90d9;
+    -fx-text-fill: white;
+}
