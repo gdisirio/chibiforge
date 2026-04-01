@@ -263,7 +263,7 @@ public class MainWindow {
             if (configEntry == null) return;
 
             breadcrumb.setPath("Components", def.getName());
-            configForm.loadComponent(def, configEntry);
+            configForm.loadComponent(def, configEntry, container);
 
             centerPanel.getChildren().clear();
             centerPanel.getChildren().add(configForm.getRoot());

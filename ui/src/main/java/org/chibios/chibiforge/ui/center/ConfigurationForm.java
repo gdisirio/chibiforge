@@ -26,13 +26,13 @@ import javafx.scene.control.TitledPane;
 import javafx.scene.layout.VBox;
 import org.chibios.chibiforge.component.*;
 import org.chibios.chibiforge.config.ComponentConfigEntry;
+import org.chibios.chibiforge.container.ComponentContainer;
 import org.chibios.chibiforge.datamodel.IdNormalizer;
 import org.chibios.chibiforge.ui.model.AppModel;
+import org.chibios.chibiforge.ui.model.LiveDataModel;
 import org.chibios.chibiforge.ui.widgets.PropertyWidgetFactory;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
-
-import java.util.List;
 
 /**
  * Renders a component's configuration form from its schema.xml definition.
@@ -49,7 +49,10 @@ public class ConfigurationForm {
     public ConfigurationForm(AppModel model) {
         this.model = model;
         this.widgetFactory = new PropertyWidgetFactory();
-        widgetFactory.setOnDomUpdate(propName -> model.setModified(true));
+        widgetFactory.setOnDomUpdate(propName -> {
+            model.setModified(true);
+            widgetFactory.reEvaluateConditions();
+        });
 
         formContent = new VBox();
         formContent.setSpacing(4);
@@ -67,9 +70,21 @@ public class ConfigurationForm {
      *
      * @param def         the component's schema definition
      * @param configEntry the component's configuration values from xcfg
+     * @param container   the component container (for resource loading)
      */
-    public void loadComponent(ComponentDefinition def, ComponentConfigEntry configEntry) {
+    public void loadComponent(ComponentDefinition def, ComponentConfigEntry configEntry,
+                              ComponentContainer container) {
         formContent.getChildren().clear();
+        widgetFactory.clearBindings();
+
+        // Build the live data model for @ref: and @cond: resolution
+        try {
+            LiveDataModel liveModel = new LiveDataModel(def, configEntry, container);
+            widgetFactory.setLiveModel(liveModel);
+        } catch (Exception e) {
+            // If resource loading fails, proceed without live model
+            widgetFactory.setLiveModel(null);
+        }
 
         // Component description
         if (def.getDescription() != null && !def.getDescription().isEmpty()) {

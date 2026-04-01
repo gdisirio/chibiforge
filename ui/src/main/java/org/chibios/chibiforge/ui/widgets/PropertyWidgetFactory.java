@@ -26,18 +26,30 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import org.chibios.chibiforge.component.PropertyDef;
+import org.chibios.chibiforge.ui.model.LiveDataModel;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
  * Creates JavaFX widgets for property definitions.
  * Each widget reads its initial value from the DOM and writes back on edit.
+ * Supports @ref: resolution for defaults/constraints and @cond: for visibility/editability.
  */
 public class PropertyWidgetFactory {
 
+    private LiveDataModel liveModel;
     private Consumer<String> onDomUpdate;
+
+    // Track rows for re-evaluation
+    private final List<ConditionBinding> conditionBindings = new ArrayList<>();
+
+    public void setLiveModel(LiveDataModel liveModel) {
+        this.liveModel = liveModel;
+    }
 
     /**
      * Set callback invoked after a property value is written to the DOM.
@@ -49,10 +61,6 @@ public class PropertyWidgetFactory {
 
     /**
      * Create a labeled property row: label on left, widget on right.
-     *
-     * @param prop      the property definition
-     * @param parentEl  the DOM element containing this property's value element
-     * @return the row node
      */
     public Node createPropertyRow(PropertyDef prop, Element parentEl) {
         // Label side
@@ -74,19 +82,55 @@ public class PropertyWidgetFactory {
         row.setPadding(new Insets(4, 0, 4, 0));
         row.getStyleClass().add("property-row");
 
-        // Editability
-        if (!prop.isEditable() && !prop.hasEditableCondition()) {
+        // Editability: static or @cond:
+        if (prop.hasEditableCondition()) {
+            conditionBindings.add(new ConditionBinding(
+                    prop.getEditableCondition(), widget, ConditionBinding.Type.EDITABLE));
+        } else if (!prop.isEditable()) {
             widget.setDisable(true);
+        }
+
+        // Visibility: static or @cond:
+        if (prop.hasVisibleCondition()) {
+            conditionBindings.add(new ConditionBinding(
+                    prop.getVisibleCondition(), row, ConditionBinding.Type.VISIBLE));
+        } else if (!prop.isVisible()) {
+            row.setVisible(false);
+            row.setManaged(false);
         }
 
         return row;
     }
 
     /**
-     * Create the appropriate input widget for a property type.
+     * Re-evaluate all @cond: expressions after a DOM update.
      */
+    public void reEvaluateConditions() {
+        if (liveModel == null) return;
+        liveModel.rebuildXPathDoc();
+
+        for (ConditionBinding binding : conditionBindings) {
+            boolean result = liveModel.evaluateCondition(binding.expression);
+            if (binding.type == ConditionBinding.Type.VISIBLE) {
+                binding.node.setVisible(result);
+                binding.node.setManaged(result);
+            } else {
+                binding.node.setDisable(!result);
+            }
+        }
+    }
+
+    /**
+     * Clear tracked condition bindings (call when loading a new component).
+     */
+    public void clearBindings() {
+        conditionBindings.clear();
+    }
+
     private Node createWidget(PropertyDef prop, Element parentEl) {
-        String currentValue = getDomValue(prop.getName(), parentEl, prop.getDefaultValue());
+        // Resolve @ref: in default value
+        String resolvedDefault = resolveRef(prop.getDefaultValue());
+        String currentValue = getDomValue(prop.getName(), parentEl, resolvedDefault);
 
         return switch (prop.getType()) {
             case BOOL -> createBoolWidget(prop, parentEl, currentValue);
@@ -111,12 +155,11 @@ public class PropertyWidgetFactory {
     private Node createStringWidget(PropertyDef prop, Element parentEl, String value) {
         TextField field = new TextField(value);
         field.setPromptText(prop.getBrief());
+        String regex = resolveRef(prop.getStringRegex());
         field.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
             if (!isFocused) {
                 String text = field.getText();
-                // Validate regex
-                if (prop.getStringRegex() != null && !text.isEmpty()
-                        && !text.matches(prop.getStringRegex())) {
+                if (regex != null && !text.isEmpty() && !text.matches(regex)) {
                     field.getStyleClass().add("field-error");
                     return;
                 }
@@ -131,16 +174,19 @@ public class PropertyWidgetFactory {
     private Node createIntWidget(PropertyDef prop, Element parentEl, String value) {
         TextField field = new TextField(value);
         field.setPrefWidth(120);
+        // Resolve @ref: in constraints
+        String minStr = resolveRef(prop.getIntMin());
+        String maxStr = resolveRef(prop.getIntMax());
         field.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
             if (!isFocused) {
                 String text = field.getText().trim();
                 try {
                     int val = Integer.parseInt(text);
-                    if (prop.getIntMin() != null && val < Integer.parseInt(prop.getIntMin())) {
+                    if (minStr != null && val < Integer.parseInt(minStr)) {
                         field.getStyleClass().add("field-error");
                         return;
                     }
-                    if (prop.getIntMax() != null && val > Integer.parseInt(prop.getIntMax())) {
+                    if (maxStr != null && val > Integer.parseInt(maxStr)) {
                         field.getStyleClass().add("field-error");
                         return;
                     }
@@ -157,8 +203,10 @@ public class PropertyWidgetFactory {
 
     private Node createEnumWidget(PropertyDef prop, Element parentEl, String value) {
         ComboBox<String> combo = new ComboBox<>();
-        if (prop.getEnumOf() != null) {
-            for (String choice : prop.getEnumOf().split(",")) {
+        // Resolve @ref: in enum_of
+        String enumOf = resolveRef(prop.getEnumOf());
+        if (enumOf != null) {
+            for (String choice : enumOf.split(",")) {
                 combo.getItems().add(choice.trim());
             }
         }
@@ -177,11 +225,12 @@ public class PropertyWidgetFactory {
         TextArea area = new TextArea(value);
         area.setPrefRowCount(5);
         area.setStyle("-fx-font-family: monospace;");
+        String maxSizeStr = resolveRef(prop.getTextMaxsize());
         area.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
             if (!isFocused) {
                 String text = area.getText();
-                if (prop.getTextMaxsize() != null) {
-                    int max = Integer.parseInt(prop.getTextMaxsize());
+                if (maxSizeStr != null) {
+                    int max = Integer.parseInt(maxSizeStr);
                     if (text.length() > max) {
                         area.getStyleClass().add("field-error");
                         return;
@@ -201,9 +250,12 @@ public class PropertyWidgetFactory {
         return label;
     }
 
-    /**
-     * Read a property value from the DOM, or return the default.
-     */
+    private String resolveRef(String value) {
+        if (value == null) return null;
+        if (liveModel != null) return liveModel.resolveRef(value);
+        return value;
+    }
+
     private String getDomValue(String propertyName, Element parentEl, String defaultValue) {
         NodeList nodes = parentEl.getElementsByTagName(propertyName);
         if (nodes.getLength() > 0) {
@@ -212,9 +264,6 @@ public class PropertyWidgetFactory {
         return defaultValue != null ? defaultValue : "";
     }
 
-    /**
-     * Write a property value to the DOM. Creates the element if missing.
-     */
     private void setDomValue(String propertyName, Element parentEl, String value) {
         NodeList nodes = parentEl.getElementsByTagName(propertyName);
         if (nodes.getLength() > 0) {
@@ -228,5 +277,19 @@ public class PropertyWidgetFactory {
 
     private void fireDomUpdate(String propertyName) {
         if (onDomUpdate != null) onDomUpdate.accept(propertyName);
+    }
+
+    /** Tracks a @cond: expression binding to a node. */
+    private static class ConditionBinding {
+        enum Type { VISIBLE, EDITABLE }
+        final String expression;
+        final Node node;
+        final Type type;
+
+        ConditionBinding(String expression, Node node, Type type) {
+            this.expression = expression;
+            this.node = node;
+            this.type = type;
+        }
     }
 }
