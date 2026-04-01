@@ -47,3 +47,56 @@
     -fx-base: #4a90d9;
     -fx-text-fill: white;
 }
+
+/* Breadcrumb */
+.breadcrumb-bar {
+    -fx-background-color: #f0f0f0;
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 0 0 1 0;
+}
+
+.breadcrumb-current {
+    -fx-font-weight: bold;
+}
+
+.breadcrumb-separator {
+    -fx-text-fill: #999999;
+}
+
+/* Mini-toolbar */
+.mini-toolbar {
+    -fx-background-color: #f5f5f5;
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 0 0 1 0;
+}
+
+/* Component cards */
+.component-card {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d0d0;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 4, 0, 0, 1);
+    -fx-cursor: hand;
+}
+
+.component-card:hover {
+    -fx-border-color: #a0a0a0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 6, 0, 0, 2);
+}
+
+.card-selected {
+    -fx-border-color: #4a90d9;
+    -fx-border-width: 2;
+}
+
+.version-label {
+    -fx-text-fill: #888888;
+    -fx-font-size: 11px;
+}
+
+.hint-text {
+    -fx-text-fill: #aaaaaa;
+    -fx-font-size: 11px;
+}

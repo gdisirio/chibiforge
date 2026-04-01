@@ -28,6 +28,8 @@ import org.chibios.chibiforge.config.ChibiForgeConfiguration;
 import org.chibios.chibiforge.config.ConfigLoader;
 import org.chibios.chibiforge.feature.FeatureChecker;
 import org.chibios.chibiforge.registry.ComponentRegistry;
+import org.chibios.chibiforge.ui.center.BreadcrumbBar;
+import org.chibios.chibiforge.ui.center.ComponentsView;
 import org.chibios.chibiforge.ui.model.AppModel;
 import org.chibios.chibiforge.ui.palette.ComponentPalette;
 
@@ -55,6 +57,8 @@ public class MainWindow {
     private final StackPane centerPanel;
     private final VBox inspectorPanel;
     private final SplitPane splitPane;
+    private final BreadcrumbBar breadcrumb;
+    private final ComponentsView componentsView;
 
     // Status bar
     private final Label statusLeft;
@@ -89,12 +93,28 @@ public class MainWindow {
         // Left panel — component palette
         palette = new ComponentPalette(model);
 
+        // Breadcrumb
+        breadcrumb = new BreadcrumbBar();
+        breadcrumb.setOnNavigate(index -> {
+            if (index == 0) showComponentsView();
+        });
+
+        // Components view
+        componentsView = new ComponentsView(model);
+        componentsView.setOnComponentDoubleClick(compId -> {
+            // TODO M4: navigate to configuration form
+            breadcrumb.setPath("Components", getComponentName(compId));
+        });
+        componentsView.setOnAddSelected(() -> addSelectedComponent());
+
         // Center panel
         centerPanel = new StackPane();
         centerPanel.getStyleClass().add("center-panel");
         Label placeholder = new Label("Open a configuration file to begin");
         placeholder.getStyleClass().add("placeholder-text");
-        centerPanel.getChildren().add(placeholder);
+
+        VBox centerContainer = new VBox(breadcrumb, centerPanel);
+        VBox.setVgrow(centerPanel, Priority.ALWAYS);
 
         // Right panel — inspector
         inspectorPanel = createInspectorPanel();
@@ -105,8 +125,8 @@ public class MainWindow {
         HBox statusBar = createStatusBar();
 
         // Main layout
-        splitPane = new SplitPane(palette.getRoot(), centerPanel, inspectorPanel);
-        splitPane.setDividerPositions(0.2, 0.75);
+        splitPane = new SplitPane(palette.getRoot(), centerContainer, inspectorPanel);
+        splitPane.setDividerPositions(0.15, 0.78);
 
         // Inspector toggle
         inspectorToggle.setOnAction(e -> {
@@ -188,11 +208,8 @@ public class MainWindow {
                 statusRight.setText(warnings.size() + " warning(s)");
             }
 
-            // Update center panel
-            centerPanel.getChildren().clear();
-            Label loaded = new Label("Configuration loaded: " + compCount + " component(s)");
-            loaded.getStyleClass().add("placeholder-text");
-            centerPanel.getChildren().add(loaded);
+            // Show components view
+            showComponentsView();
 
         } catch (Exception e) {
             Alert alert = new Alert(Alert.AlertType.ERROR,
@@ -200,6 +217,91 @@ public class MainWindow {
                     ButtonType.OK);
             alert.setTitle("Error");
             alert.showAndWait();
+        }
+    }
+
+    /**
+     * Show the top-level components card view.
+     */
+    private void showComponentsView() {
+        breadcrumb.setPath("Components");
+        centerPanel.getChildren().clear();
+        centerPanel.getChildren().add(componentsView.getRoot());
+        componentsView.refresh();
+        updateStatusBar();
+    }
+
+    /**
+     * Add the component currently selected in the palette to the configuration.
+     */
+    private void addSelectedComponent() {
+        String compId = palette.getSelectedComponentId();
+        if (compId == null) return;
+
+        // Check if already configured
+        if (model.getConfiguredComponentIds().contains(compId)) {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION,
+                    "Component is already in the configuration.", ButtonType.OK);
+            alert.setHeaderText(null);
+            alert.showAndWait();
+            return;
+        }
+
+        // Add to the xcfg DOM
+        var config = model.getConfiguration();
+        if (config == null) return;
+
+        try {
+            // Find the <components> element and add a new <component id="..."/>
+            var firstEntry = config.getComponents().isEmpty() ? null : config.getComponents().get(0);
+            if (firstEntry != null) {
+                var componentsElement = firstEntry.getConfigElement().getParentNode();
+                var doc = firstEntry.getConfigElement().getOwnerDocument();
+                var newComp = doc.createElementNS(
+                        firstEntry.getConfigElement().getNamespaceURI(), "component");
+                newComp.setAttribute("id", compId);
+                componentsElement.appendChild(newComp);
+            }
+
+            // Reload the configuration to pick up the new component
+            // TODO: proper incremental model update
+            Path configFile = model.getConfigFile();
+            if (configFile != null) {
+                // Re-parse to get updated component list
+                var loader = new org.chibios.chibiforge.config.ConfigLoader();
+                // For now, mark modified and refresh views
+                model.setModified(true);
+            }
+
+            componentsView.refresh();
+            palette.refresh();
+            updateStatusBar();
+        } catch (Exception e) {
+            Alert alert = new Alert(Alert.AlertType.ERROR,
+                    "Failed to add component: " + e.getMessage(), ButtonType.OK);
+            alert.showAndWait();
+        }
+    }
+
+    private String getComponentName(String componentId) {
+        try {
+            if (model.getRegistry() != null) {
+                return model.getRegistry().lookup(componentId).loadDefinition().getName();
+            }
+        } catch (Exception ignored) {}
+        return componentId;
+    }
+
+    private void updateStatusBar() {
+        var config = model.getConfiguration();
+        var registry = model.getRegistry();
+        if (config != null && registry != null) {
+            int compCount = config.getComponents().size();
+            statusLeft.setText(compCount + " component(s) configured, " +
+                    registry.size() + " available, target: " + model.getActiveTarget());
+        }
+        if (!model.getWarnings().isEmpty()) {
+            statusRight.setText(model.getWarnings().size() + " warning(s)");
         }
     }
 
