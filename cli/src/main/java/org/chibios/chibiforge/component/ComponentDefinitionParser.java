@@ -143,10 +143,8 @@ public class ComponentDefinitionParser {
         PropertyDef.Type type = PropertyDef.Type.fromString(requireAttr(propEl, "type"));
         String brief = requireAttr(propEl, "brief");
         boolean required = "true".equals(requireAttr(propEl, "required"));
-        boolean editable = "true".equals(requireAttr(propEl, "editable"));
-        String editableIf = optAttr(propEl, "editable_if");
-        boolean visible = !"false".equals(propEl.hasAttribute("visible") ? propEl.getAttribute("visible") : "true");
-        String visibleIf = optAttr(propEl, "visible_if");
+        String editable = requireAttr(propEl, "editable"); // "true", "false", or "@cond:xpath"
+        String visible = propEl.hasAttribute("visible") ? propEl.getAttribute("visible") : "true";
         String defaultValue = requireAttr(propEl, "default");
 
         String intMin = optAttr(propEl, "int_min");
@@ -163,8 +161,7 @@ public class ComponentDefinitionParser {
             }
         }
 
-        return new PropertyDef(name, type, brief, required, editable, editableIf,
-                visible, visibleIf, defaultValue,
+        return new PropertyDef(name, type, brief, required, editable, visible, defaultValue,
                 intMin, intMax, stringRegex, textMaxsize, enumOf, listColumns, nestedSections);
     }
 

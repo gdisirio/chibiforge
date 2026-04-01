@@ -34,14 +34,14 @@ public class PropertyDef {
         }
     }
 
+    private static final String COND_PREFIX = "@cond:";
+
     private final String name;
     private final Type type;
     private final String brief;
     private final boolean required;
-    private final boolean editable;
-    private final String editableIf;
-    private final boolean visible;
-    private final String visibleIf;
+    private final String editable;   // "true", "false", or "@cond:<xpath>"
+    private final String visible;    // "true", "false", or "@cond:<xpath>"
     private final String defaultValue;
 
     // Type-specific attributes
@@ -55,8 +55,8 @@ public class PropertyDef {
     // Nested sections for list type
     private final List<SectionDef> nestedSections;
 
-    public PropertyDef(String name, Type type, String brief, boolean required, boolean editable,
-                       String editableIf, boolean visible, String visibleIf,
+    public PropertyDef(String name, Type type, String brief, boolean required,
+                       String editable, String visible,
                        String defaultValue, String intMin, String intMax, String stringRegex,
                        String textMaxsize, String enumOf, String listColumns,
                        List<SectionDef> nestedSections) {
@@ -64,10 +64,8 @@ public class PropertyDef {
         this.type = type;
         this.brief = brief;
         this.required = required;
-        this.editable = editable;
-        this.editableIf = editableIf;
-        this.visible = visible;
-        this.visibleIf = visibleIf;
+        this.editable = editable != null ? editable : "true";
+        this.visible = visible != null ? visible : "true";
         this.defaultValue = defaultValue;
         this.intMin = intMin;
         this.intMax = intMax;
@@ -82,10 +80,29 @@ public class PropertyDef {
     public Type getType() { return type; }
     public String getBrief() { return brief; }
     public boolean isRequired() { return required; }
-    public boolean isEditable() { return editable; }
-    public String getEditableIf() { return editableIf; }
-    public boolean isVisible() { return visible; }
-    public String getVisibleIf() { return visibleIf; }
+
+    /** Raw editable value: "true", "false", or "@cond:xpath". */
+    public String getEditable() { return editable; }
+    /** True if statically editable (no @cond:). */
+    public boolean isEditable() { return "true".equals(editable); }
+    /** True if editable has a @cond: expression. */
+    public boolean hasEditableCondition() { return editable.startsWith(COND_PREFIX); }
+    /** Returns the @cond: XPath expression, or null. */
+    public String getEditableCondition() {
+        return hasEditableCondition() ? editable.substring(COND_PREFIX.length()) : null;
+    }
+
+    /** Raw visible value: "true", "false", or "@cond:xpath". */
+    public String getVisible() { return visible; }
+    /** True if statically visible (no @cond:). */
+    public boolean isVisible() { return "true".equals(visible); }
+    /** True if visible has a @cond: expression. */
+    public boolean hasVisibleCondition() { return visible.startsWith(COND_PREFIX); }
+    /** Returns the @cond: XPath expression, or null. */
+    public String getVisibleCondition() {
+        return hasVisibleCondition() ? visible.substring(COND_PREFIX.length()) : null;
+    }
+
     public String getDefaultValue() { return defaultValue; }
     public String getIntMin() { return intMin; }
     public String getIntMax() { return intMax; }

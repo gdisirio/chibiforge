@@ -39,8 +39,9 @@
       <property name="do_not_init" type="bool" brief="Skip initialization"
                 required="true" editable="true" default="false"/>
       <property name="vdd" type="int" brief="Supply voltage in millivolts"
-                required="true" editable="true" visible="true"
-                editable_if="doc.initialization_settings.do_not_init = 'false'"
+                required="true"
+                editable="@cond:doc/initialization_settings/do_not_init = 'false'"
+                visible="true"
                 default="300" int_min="180" int_max="360"/>
       <layout columns="2" align="left">
         <property name="hse_frequency" type="int" brief="HSE frequency"

@@ -1,6 +1,8 @@
 # Maven build output
 target/
-cli/chibiforge.jar
+
+# Build output
+bin/chibiforge.jar
 
 # IDE files
 .idea/

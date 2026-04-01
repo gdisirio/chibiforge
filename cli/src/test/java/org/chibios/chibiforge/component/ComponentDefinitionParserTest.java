@@ -126,22 +126,26 @@ class ComponentDefinitionParserTest {
     }
 
     @Test
-    void visibleAndEditableIfAttributes() {
+    void condEditableAttribute() {
         SectionDef section = def.getSections().get(0);
         PropertyDef vdd = (PropertyDef) section.getChildren().get(1);
         assertThat(vdd.isVisible()).isTrue();
-        assertThat(vdd.getEditableIf()).isEqualTo("doc.initialization_settings.do_not_init = 'false'");
-        assertThat(vdd.getVisibleIf()).isNull();
+        assertThat(vdd.hasEditableCondition()).isTrue();
+        assertThat(vdd.getEditableCondition())
+                .isEqualTo("doc/initialization_settings/do_not_init = 'false'");
+        assertThat(vdd.isEditable()).isFalse(); // not statically "true"
+        assertThat(vdd.getEditable())
+                .isEqualTo("@cond:doc/initialization_settings/do_not_init = 'false'");
     }
 
     @Test
-    void defaultVisibleWhenAttributeMissing() {
+    void defaultVisibleAndEditableWhenAttributeMissing() {
         SectionDef section = def.getSections().get(0);
         PropertyDef doNotInit = (PropertyDef) section.getChildren().get(0);
-        // visible attribute not present in XML — defaults to true
         assertThat(doNotInit.isVisible()).isTrue();
-        assertThat(doNotInit.getEditableIf()).isNull();
-        assertThat(doNotInit.getVisibleIf()).isNull();
+        assertThat(doNotInit.isEditable()).isTrue();
+        assertThat(doNotInit.hasEditableCondition()).isFalse();
+        assertThat(doNotInit.hasVisibleCondition()).isFalse();
     }
 
     @Test
