@@ -100,3 +100,43 @@
     -fx-text-fill: #aaaaaa;
     -fx-font-size: 11px;
 }
+
+/* Configuration form */
+.component-description {
+    -fx-text-fill: #555555;
+    -fx-font-size: 13px;
+}
+
+.section-description {
+    -fx-text-fill: #777777;
+    -fx-font-size: 12px;
+    -fx-font-style: italic;
+}
+
+.section-pane {
+    -fx-font-weight: bold;
+}
+
+.section-pane > .content {
+    -fx-background-color: #fafafa;
+}
+
+.property-row {
+    -fx-border-color: transparent transparent #f0f0f0 transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.property-name {
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+
+.property-brief {
+    -fx-text-fill: #888888;
+    -fx-font-size: 11px;
+}
+
+.field-error {
+    -fx-border-color: #cc3333;
+    -fx-border-width: 1;
+}

@@ -24,12 +24,16 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import org.chibios.chibiforge.component.ComponentDefinition;
 import org.chibios.chibiforge.config.ChibiForgeConfiguration;
+import org.chibios.chibiforge.config.ComponentConfigEntry;
 import org.chibios.chibiforge.config.ConfigLoader;
+import org.chibios.chibiforge.container.ComponentContainer;
 import org.chibios.chibiforge.feature.FeatureChecker;
 import org.chibios.chibiforge.registry.ComponentRegistry;
 import org.chibios.chibiforge.ui.center.BreadcrumbBar;
 import org.chibios.chibiforge.ui.center.ComponentsView;
+import org.chibios.chibiforge.ui.center.ConfigurationForm;
 import org.chibios.chibiforge.ui.model.AppModel;
 import org.chibios.chibiforge.ui.palette.ComponentPalette;
 
@@ -59,6 +63,7 @@ public class MainWindow {
     private final SplitPane splitPane;
     private final BreadcrumbBar breadcrumb;
     private final ComponentsView componentsView;
+    private final ConfigurationForm configForm;
 
     // Status bar
     private final Label statusLeft;
@@ -99,12 +104,12 @@ public class MainWindow {
             if (index == 0) showComponentsView();
         });
 
+        // Configuration form
+        configForm = new ConfigurationForm(model);
+
         // Components view
         componentsView = new ComponentsView(model);
-        componentsView.setOnComponentDoubleClick(compId -> {
-            // TODO M4: navigate to configuration form
-            breadcrumb.setPath("Components", getComponentName(compId));
-        });
+        componentsView.setOnComponentDoubleClick(compId -> showConfigurationForm(compId));
         componentsView.setOnAddSelected(() -> addSelectedComponent());
 
         // Center panel
@@ -142,6 +147,14 @@ public class MainWindow {
         root.setTop(topContainer);
         root.setCenter(splitPane);
         root.setBottom(statusBar);
+
+        // Escape key navigates up
+        root.setOnKeyPressed(e -> {
+            if (e.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
+                breadcrumb.navigateUp();
+                e.consume();
+            }
+        });
 
         // Bind title bar to config file path
         model.configFileProperty().addListener((obs, old, path) -> {
@@ -229,6 +242,36 @@ public class MainWindow {
         centerPanel.getChildren().add(componentsView.getRoot());
         componentsView.refresh();
         updateStatusBar();
+    }
+
+    /**
+     * Show the configuration form for a specific component.
+     */
+    private void showConfigurationForm(String componentId) {
+        try {
+            ComponentContainer container = model.getRegistry().lookup(componentId);
+            ComponentDefinition def = container.loadDefinition();
+
+            // Find the config entry for this component
+            ComponentConfigEntry configEntry = null;
+            for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
+                if (entry.getComponentId().equals(componentId)) {
+                    configEntry = entry;
+                    break;
+                }
+            }
+            if (configEntry == null) return;
+
+            breadcrumb.setPath("Components", def.getName());
+            configForm.loadComponent(def, configEntry);
+
+            centerPanel.getChildren().clear();
+            centerPanel.getChildren().add(configForm.getRoot());
+        } catch (Exception e) {
+            Alert alert = new Alert(Alert.AlertType.ERROR,
+                    "Failed to load component form:\n" + e.getMessage(), ButtonType.OK);
+            alert.showAndWait();
+        }
     }
 
     /**
