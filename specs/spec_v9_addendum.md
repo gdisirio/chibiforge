@@ -48,3 +48,13 @@ All Maven. The UI module will be a Maven module alongside `cli/`, not a separate
 
 ### Files tab (Inspector)
 Shows a simple file listing of the configuration root directory tree. No cross-referencing with component containers to determine which component produced which file. Color-coding and badges described in §5.3 of the UI spec are deferred — the initial implementation shows a plain file tree.
+
+---
+
+## Pending Spec Items
+
+### `text` property type and CDATA serialization
+The `text` property type is used for code snippets (C initialization code, etc.) that may contain XML-special characters (`<`, `>`, `&`). The spec does not address how these values are serialized in `chibiforge.xcfg`. The implementation should use CDATA sections (`<![CDATA[...]]>`) when writing `text` property values to avoid XML escaping that would mangle source code. The DOM parser reads CDATA transparently, so this only affects the writer (`XcfgWriter`). This requires the writer to know which properties are `text` type, which means consulting the component schema during save — or alternatively, always using CDATA for any element whose text content contains `<`, `>`, or `&`.
+
+### Component source paths in the UI
+The UI currently receives component and plugin paths via CLI arguments (`--components`, `--plugins`). There is no Preferences dialog to set or change these paths from within the UI. A future enhancement should allow the user to configure component sources in Preferences, persisted across sessions. The spec should define where these preferences are stored (e.g., a user-level config file, OS-specific preferences directory).
