@@ -261,3 +261,208 @@ The following are deferred to full specification update:
 
 # **End of Document**
 
+---
+
+# **Addendum — Preset Semantics Revision (v12)**
+
+## **10. Preset Application Model (Revised)**
+
+### **10.1 General**
+
+Preset application semantics are revised from **full replacement** to a **permissive patch model**.
+
+A preset SHALL update only the `<property>` values it explicitly defines. All other values in the target `<component>` SHALL remain unchanged.
+
+Presets:
+
+* SHALL NOT create persistent references in the configuration
+* SHALL NOT participate in dependency resolution
+* SHALL NOT modify the preset file itself
+
+---
+
+### **10.2 Component Matching**
+
+A preset MUST declare a `componentId` attribute.
+
+* The value MUST match the target `<component>@id`.
+* If the `componentId` does not match, preset application SHALL fail.
+* No partial application SHALL occur in case of mismatch.
+
+---
+
+### **10.3 Property Identification (Schema Path)**
+
+Preset values SHALL be matched using the **schema path** of each `<property>`.
+
+A schema path is defined as:
+
+* the hierarchy of enclosing `<section @name>` elements
+* followed by the terminal `<property @name>`
+
+Preset files SHALL use the original `<section @name>` and `<property @name>` values as defined in the component schema.
+
+---
+
+### **10.4 Path Normalization and Matching**
+
+Matching SHALL be performed using **normalized schema paths**.
+
+* Each `<section @name>` and `<property @name>` SHALL be normalized using the standard ChibiForge identifier normalization rule defined in the main specification.
+* The normalized elements SHALL be joined using `/` to form the schema path.
+
+Example:
+
+```text
+Initialization Settings / System clock source
+→ initialization_settings/system_clock_source
+```
+
+Normalization SHALL be applied only for matching and SHALL NOT modify the preset file.
+
+---
+
+### **10.5 Property Application Semantics**
+
+Preset application proceeds per schema path.
+
+For each `<property>` defined in the preset:
+
+* If a `<property>` with the same normalized schema path exists in the target component schema, its value SHALL be applied.
+* If no matching schema path exists, the preset entry SHALL be ignored.
+
+For `<property>` elements defined in the component schema but not present in the preset:
+
+* The existing value SHALL remain unchanged.
+
+---
+
+### **10.6 List Property Semantics**
+
+For `<property type="list">`:
+
+* Matching is performed using the normalized schema path of the list property.
+* If the property is present in the preset, the entire list SHALL be replaced.
+* No element-by-element merge SHALL be performed.
+* If the property is not present in the preset, the existing list SHALL remain unchanged.
+
+---
+
+### **10.7 Target Model Interaction**
+
+Preset application is target-local.
+
+For each matched `<property>`:
+
+* If a `<targetValue target="...">` exists for the active target, it SHALL be replaced.
+* Otherwise, the `default` attribute SHALL be replaced.
+
+Tools MAY provide an option to create `<targetValue>` elements for properties that currently inherit from `default`.
+
+---
+
+### **10.8 Schema Evolution Behavior**
+
+Preset application SHALL be tolerant to schema changes.
+
+If a schema path defined in the preset no longer exists in the current component schema (due to:
+
+* renamed `<section>` elements,
+* inserted or removed sections,
+* renamed or removed `<property>` elements),
+
+then:
+
+* the preset entry SHALL be ignored,
+* a warning SHALL be logged.
+
+---
+
+### **10.9 Logging Requirements**
+
+Preset application SHALL produce structured logs.
+
+#### **10.9.1 Ignored Properties**
+
+If a preset `<property>` does not match any schema path:
+
+* The property SHALL be ignored.
+* A warning SHALL be logged.
+
+Example:
+
+```
+[Preset] Ignored property 'Initialization Settings / PLL old mode' — path not present in component schema
+```
+
+---
+
+#### **10.9.2 Unmodified Properties**
+
+If a schema-defined `<property>` is not present in the preset:
+
+* Its value SHALL remain unchanged.
+* An informational log entry MAY be emitted.
+
+Example:
+
+```
+[Preset] Property 'DMA Settings / Channels' not defined in preset — existing value retained
+```
+
+---
+
+#### **10.9.3 Summary**
+
+Tools SHOULD emit a summary after preset application:
+
+```
+Preset applied:
+- 12 properties updated
+- 2 properties ignored
+- 5 properties unchanged
+```
+
+---
+
+### **10.10 Error Conditions**
+
+The following SHALL be treated as errors:
+
+* `componentId` mismatch with `<component>@id`
+* malformed preset XML
+* invalid value type for a `<property>` (violates schema constraints)
+
+In such cases, preset application SHALL abort.
+
+---
+
+### **10.11 Export Semantics (Unchanged)**
+
+Preset export behavior remains unchanged:
+
+* A preset SHALL serialize a single `<component>` configuration fragment
+* Values SHALL reflect the currently selected target
+* All inherited values MUST be resolved into explicit values
+* No `<target>` or `<targetValue>` structures SHALL be included
+
+---
+
+## **11. Rationale**
+
+This revision:
+
+* aligns preset matching with the hierarchical `<section>` / `<property>` schema model
+* uses normalized schema paths for robust matching while preserving readable preset files
+* enables safe reuse of presets across schema evolution
+* preserves deterministic behavior for `<property type="list">`
+* avoids ambiguity caused by duplicate property names in different sections
+
+Presets remain **deterministic, schema-aligned configuration patches** applied onto a `<component>` instance.
+
+---
+
+# **End of Addendum**
+
+---
+

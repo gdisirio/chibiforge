@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+  targetNamespace="http://www.example.org/chibiforge_preset/"
+  xmlns:tns="http://www.example.org/chibiforge_preset/"
+  elementFormDefault="qualified">
+
+  <element name="preset" type="tns:presetType"></element>
+
+  <complexType name="presetType">
+    <sequence>
+      <element name="sections" type="tns:sectionsType"></element>
+    </sequence>
+    <attribute name="name" type="string" use="required"></attribute>
+    <attribute name="id" type="string" use="required"></attribute>
+    <attribute name="version" type="string" use="required"></attribute>
+  </complexType>
+
+  <complexType name="sectionsType">
+    <sequence>
+      <element name="section" type="tns:sectionType"
+        maxOccurs="unbounded" minOccurs="1">
+      </element>
+    </sequence>
+  </complexType>
+
+  <complexType name="sectionType">
+    <sequence>
+      <element name="property" type="tns:propertyType"
+        maxOccurs="unbounded" minOccurs="1"></element>
+    </sequence>
+    <attribute name="name" use="required">
+      <simpleType>
+        <restriction base="string">
+          <minLength value="1"></minLength>
+        </restriction>
+      </simpleType>
+    </attribute>
+  </complexType>
+
+  <complexType name="propertyType">
+    <choice>
+      <element name="sections" type="tns:sectionsType" maxOccurs="1"
+        minOccurs="1">
+      </element>
+      <element name="value" type="string" maxOccurs="1" minOccurs="1"></element>
+    </choice>
+    <attribute name="name" use="required">
+      <simpleType>
+        <restriction base="string">
+          <minLength value="1"></minLength>
+        </restriction>
+      </simpleType>
+    </attribute>
+    <attribute name="type" use="required">
+      <simpleType>
+        <restriction base="string">
+          <enumeration value="int"></enumeration>
+          <enumeration value="string"></enumeration>
+          <enumeration value="text"></enumeration>
+          <enumeration value="bool"></enumeration>
+          <enumeration value="enum"></enumeration>
+          <enumeration value="list"></enumeration>
+        </restriction>
+      </simpleType>
+    </attribute>
+  </complexType>
+</schema>
