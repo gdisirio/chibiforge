@@ -28,6 +28,9 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -43,15 +46,14 @@ public class XcfgWriter {
      *
      * @param configRootElement the document root element
      * @param outputPath the file to write
-     * @param textPropertyNames set of property element names that are type="text"
-     *                          (these are always wrapped in CDATA)
+     * @param textPropertyPaths componentId -> set of exact property paths that are type="text"
      */
     public void save(Element configRootElement, Path outputPath,
-                     Set<String> textPropertyNames) throws Exception {
+                     Map<String, Set<String>> textPropertyPaths) throws Exception {
         Document doc = configRootElement.getOwnerDocument();
 
         stripWhitespaceNodes(doc.getDocumentElement());
-        convertTextToCdata(doc.getDocumentElement(), textPropertyNames);
+        convertTextToCdata(doc.getDocumentElement(), textPropertyPaths, null, new ArrayDeque<>());
 
         TransformerFactory tf = TransformerFactory.newInstance();
         Transformer transformer = tf.newTransformer();
@@ -85,36 +87,64 @@ public class XcfgWriter {
 
     /**
      * Convert type="text" property elements to use CDATA sections.
-     * Only elements whose tag name is in textPropertyNames are converted.
+     * Elements are matched by component id and exact path within that component.
      */
-    private void convertTextToCdata(Element element, Set<String> textPropertyNames) {
+    private void convertTextToCdata(Element element, Map<String, Set<String>> textPropertyPaths,
+                                    String componentId, Deque<String> pathSegments) {
         NodeList children = element.getChildNodes();
+        String localName = element.getLocalName() != null ? element.getLocalName() : element.getTagName();
 
-        // Check if this is a leaf element matching a text property name
-        String tagName = element.getLocalName() != null ? element.getLocalName() : element.getTagName();
-        if (textPropertyNames.contains(tagName) && isLeafElement(element)) {
-            String text = element.getTextContent();
-            if (text != null && !text.isEmpty()) {
-                // Remove existing text/CDATA nodes
-                for (int i = children.getLength() - 1; i >= 0; i--) {
-                    Node child = children.item(i);
-                    if (child.getNodeType() == Node.TEXT_NODE
-                            || child.getNodeType() == Node.CDATA_SECTION_NODE) {
-                        element.removeChild(child);
-                    }
+        if ("component".equals(localName) && element.hasAttribute("id")) {
+            String nextComponentId = element.getAttribute("id");
+            for (int i = 0; i < children.getLength(); i++) {
+                if (children.item(i) instanceof Element child) {
+                    convertTextToCdata(child, textPropertyPaths, nextComponentId, pathSegments);
                 }
-                CDATASection cdata = element.getOwnerDocument().createCDATASection(text);
-                element.appendChild(cdata);
             }
             return;
         }
 
-        // Recurse into child elements
-        for (int i = 0; i < children.getLength(); i++) {
-            if (children.item(i) instanceof Element child) {
-                convertTextToCdata(child, textPropertyNames);
+        boolean appended = false;
+        if (componentId != null) {
+            pathSegments.addLast("item".equals(localName) ? "*" : localName);
+            appended = true;
+            if (isLeafElement(element) && shouldUseCdata(componentId, pathSegments, textPropertyPaths)) {
+                replaceWithSingleCdata(element, element.getTextContent());
             }
         }
+
+        for (int i = 0; i < children.getLength(); i++) {
+            if (children.item(i) instanceof Element child) {
+                convertTextToCdata(child, textPropertyPaths, componentId, pathSegments);
+            }
+        }
+
+        if (appended) {
+            pathSegments.removeLast();
+        }
+    }
+
+    private boolean shouldUseCdata(String componentId, Deque<String> pathSegments,
+                                   Map<String, Set<String>> textPropertyPaths) {
+        Set<String> paths = textPropertyPaths.get(componentId);
+        if (paths == null || paths.isEmpty()) {
+            return false;
+        }
+        return paths.contains(String.join("/", pathSegments));
+    }
+
+    private void replaceWithSingleCdata(Element element, String text) {
+        NodeList children = element.getChildNodes();
+        for (int i = children.getLength() - 1; i >= 0; i--) {
+            Node child = children.item(i);
+            if (child.getNodeType() == Node.TEXT_NODE
+                    || child.getNodeType() == Node.CDATA_SECTION_NODE) {
+                element.removeChild(child);
+            }
+        }
+        CDATASection cdata = element.getOwnerDocument()
+                .createCDATASection(text != null ? text : "");
+        element.appendChild(cdata);
     }
 
     private boolean isLeafElement(Element element) {

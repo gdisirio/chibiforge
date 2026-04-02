@@ -38,7 +38,7 @@ import java.util.concurrent.Callable;
 public class GenerateCommand implements Callable<Integer> {
 
     @Option(names = {"--config", "-c"},
-            description = "Path to chibiforge.xcfg (default: env CHIBIFORGE_CONFIG_PATH or ./chibiforge.xcfg)")
+            description = "Path to the configuration file (default: env CHIBIFORGE_CONFIG_PATH or ./chibiforge.xcfg)")
     private String configPath;
 
     @Option(names = {"--components"},

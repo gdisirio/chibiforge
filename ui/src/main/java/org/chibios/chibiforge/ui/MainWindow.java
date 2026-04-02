@@ -25,10 +25,14 @@ import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.chibios.chibiforge.component.ComponentDefinition;
+import org.chibios.chibiforge.component.LayoutDef;
+import org.chibios.chibiforge.component.PropertyDef;
+import org.chibios.chibiforge.component.SectionDef;
 import org.chibios.chibiforge.config.ChibiForgeConfiguration;
 import org.chibios.chibiforge.config.ComponentConfigEntry;
 import org.chibios.chibiforge.config.ConfigLoader;
 import org.chibios.chibiforge.container.ComponentContainer;
+import org.chibios.chibiforge.datamodel.IdNormalizer;
 import org.chibios.chibiforge.feature.FeatureChecker;
 import org.chibios.chibiforge.registry.ComponentRegistry;
 import org.chibios.chibiforge.ui.center.BreadcrumbBar;
@@ -47,7 +51,11 @@ import org.chibios.chibiforge.generator.GeneratorEngine;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Main application window layout.
@@ -409,11 +417,11 @@ public class MainWindow {
             var element = components.get(0).getConfigElement();
             var docElement = element.getOwnerDocument().getDocumentElement();
 
-            // Collect text property names from all component schemas
-            java.util.Set<String> textPropertyNames = collectTextPropertyNames();
+            // Collect exact text-property paths from all component schemas.
+            Map<String, Set<String>> textPropertyPaths = collectTextPropertyPaths();
 
             XcfgWriter writer = new XcfgWriter();
-            writer.save(docElement, model.getConfigFile(), textPropertyNames);
+            writer.save(docElement, model.getConfigFile(), textPropertyPaths);
             model.setModified(false);
             inspector.appendLog("Saved: " + model.getConfigFile());
         } catch (Exception e) {
@@ -423,40 +431,52 @@ public class MainWindow {
         }
     }
 
-    private java.util.Set<String> collectTextPropertyNames() {
-        java.util.Set<String> names = new java.util.HashSet<>();
-        if (model.getRegistry() == null || model.getConfiguration() == null) return names;
+    private Map<String, Set<String>> collectTextPropertyPaths() {
+        Map<String, Set<String>> pathsByComponent = new HashMap<>();
+        if (model.getRegistry() == null || model.getConfiguration() == null) return pathsByComponent;
 
-        for (var entry : model.getConfiguration().getComponents()) {
+        for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
             try {
-                var container = model.getRegistry().lookup(entry.getComponentId());
-                var def = container.loadDefinition();
-                collectTextProperties(def.getSections(), names);
-            } catch (Exception ignored) {}
+                ComponentContainer container = model.getRegistry().lookup(entry.getComponentId());
+                ComponentDefinition def = container.loadDefinition();
+                Set<String> paths = new HashSet<>();
+                collectTextProperties(def.getSections(), "", paths);
+                pathsByComponent.put(entry.getComponentId(), paths);
+            } catch (Exception ignored) {
+            }
         }
-        return names;
+        return pathsByComponent;
     }
 
-    private void collectTextProperties(java.util.List<org.chibios.chibiforge.component.SectionDef> sections,
-                                       java.util.Set<String> names) {
-        for (var section : sections) {
+    private void collectTextProperties(List<SectionDef> sections, String basePath, Set<String> paths) {
+        for (SectionDef section : sections) {
+            String sectionPath = appendPath(basePath, IdNormalizer.normalize(section.getName()));
             for (Object child : section.getChildren()) {
-                if (child instanceof org.chibios.chibiforge.component.PropertyDef prop) {
-                    if (prop.getType() == org.chibios.chibiforge.component.PropertyDef.Type.TEXT) {
-                        names.add(prop.getName());
-                    }
-                    collectTextProperties(prop.getNestedSections(), names);
-                } else if (child instanceof org.chibios.chibiforge.component.LayoutDef layout) {
-                    for (Object lc : layout.getChildren()) {
-                        if (lc instanceof org.chibios.chibiforge.component.PropertyDef prop) {
-                            if (prop.getType() == org.chibios.chibiforge.component.PropertyDef.Type.TEXT) {
-                                names.add(prop.getName());
-                            }
+                if (child instanceof PropertyDef prop) {
+                    collectTextProperty(prop, sectionPath, paths);
+                } else if (child instanceof LayoutDef layout) {
+                    for (Object layoutChild : layout.getChildren()) {
+                        if (layoutChild instanceof PropertyDef prop) {
+                            collectTextProperty(prop, sectionPath, paths);
                         }
                     }
                 }
             }
         }
+    }
+
+    private void collectTextProperty(PropertyDef prop, String basePath, Set<String> paths) {
+        String propertyPath = appendPath(basePath, prop.getName());
+        if (prop.getType() == PropertyDef.Type.TEXT) {
+            paths.add(propertyPath);
+        }
+        if (!prop.getNestedSections().isEmpty()) {
+            collectTextProperties(prop.getNestedSections(), appendPath(propertyPath, "*"), paths);
+        }
+    }
+
+    private String appendPath(String basePath, String segment) {
+        return basePath == null || basePath.isEmpty() ? segment : basePath + "/" + segment;
     }
 
     private void runGenerate() {
@@ -568,9 +588,10 @@ public class MainWindow {
         MenuItem openItem = new MenuItem("Open...");
         openItem.setOnAction(e -> {
             FileChooser chooser = new FileChooser();
-            chooser.setTitle("Open ChibiForge Configuration");
-            chooser.getExtensionFilters().add(
-                    new FileChooser.ExtensionFilter("ChibiForge Configuration", "*.xcfg"));
+            chooser.setTitle("Open ChibiForge Configuration File");
+            chooser.getExtensionFilters().addAll(
+                    new FileChooser.ExtensionFilter("Configuration Files (*.xcfg)", "*.xcfg"),
+                    new FileChooser.ExtensionFilter("All Files", "*.*"));
             File file = chooser.showOpenDialog(stage);
             if (file != null) {
                 openConfiguration(file.toPath());

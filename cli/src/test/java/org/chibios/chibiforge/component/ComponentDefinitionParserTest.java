@@ -21,10 +21,13 @@ package org.chibios.chibiforge.component;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ComponentDefinitionParserTest {
 
@@ -204,5 +207,67 @@ class ComponentDefinitionParserTest {
         assertThat(((PropertyDef) pinChildren.get(0)).getName()).isEqualTo("name");
         assertThat(((PropertyDef) pinChildren.get(1)).getName()).isEqualTo("mode");
         assertThat(((PropertyDef) pinChildren.get(2)).getName()).isEqualTo("speed");
+    }
+
+    @Test
+    void rejectsUnexpectedTopLevelImageElement() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <component xmlns="http://chibiforge/schema/component"
+                           id="test.component"
+                           name="Test Component"
+                           version="1.0.0"
+                           hidden="false"
+                           is_platform="false">
+                  <description>Test.</description>
+                  <resources/>
+                  <categories><category id="Test"/></categories>
+                  <requires/>
+                  <provides/>
+                  <image file="rsc/icon.png" align="center">
+                    <text>Invalid top-level image</text>
+                  </image>
+                </component>
+                """;
+
+        ComponentDefinitionParser parser = new ComponentDefinitionParser();
+        assertThatThrownBy(() -> parser.parse(asInputStream(xml)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unexpected element <image> under <component>");
+    }
+
+    @Test
+    void rejectsPropertyMissingVisibleAttribute() {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <component xmlns="http://chibiforge/schema/component"
+                           id="test.component"
+                           name="Test Component"
+                           version="1.0.0"
+                           hidden="false"
+                           is_platform="false">
+                  <description>Test.</description>
+                  <resources/>
+                  <categories><category id="Test"/></categories>
+                  <requires/>
+                  <provides/>
+                  <sections>
+                    <section name="Settings" expanded="true" editable="true" visible="true">
+                      <description>Section.</description>
+                      <property name="message" type="string" brief="Message"
+                                required="true" editable="true" default="hello"/>
+                    </section>
+                  </sections>
+                </component>
+                """;
+
+        ComponentDefinitionParser parser = new ComponentDefinitionParser();
+        assertThatThrownBy(() -> parser.parse(asInputStream(xml)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Missing required attribute 'visible' on element <property>");
+    }
+
+    private static InputStream asInputStream(String xml) {
+        return new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8));
     }
 }

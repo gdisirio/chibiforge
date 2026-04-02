@@ -129,6 +129,9 @@ public class ConfigurationForm {
             Node sectionNode = renderSection(section, itemElement);
             formContent.getChildren().add(sectionNode);
         }
+
+        // Initial evaluation of all @cond: expressions in the drill-down view.
+        widgetFactory.reEvaluateConditions();
     }
 
     private Node renderSection(SectionDef section, Element parentConfigElement) {
