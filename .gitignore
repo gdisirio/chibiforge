@@ -12,6 +12,9 @@ bin/chibiforge.jar
 .settings/
 .vscode/
 *.swp
+CLAUDE.mp
+.claude
+.codex
 
 # OS files
 .DS_Store
