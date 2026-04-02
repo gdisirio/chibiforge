@@ -272,7 +272,7 @@ This is a **soft dependency system**: warnings inform the user of likely misconf
 
 ## 6. Configuration Schema (`<sections>`)
 
-The configuration schema defines the structure of configurable properties using sections, properties, layouts, and images.
+The configuration schema defines the structure of configurable properties using sections, properties, and layouts.
 
 ### 6.1 Sections
 
@@ -300,7 +300,7 @@ Section attributes (all required):
 Child elements:
 
 - `<description>` (required): help text shown in the GUI.
-- Then any mix of `<property>`, `<layout>`, and `<image>` elements.
+- Then any mix of `<property>` and `<layout>` elements.
 
 **GUI rendering**: sections expand as document-style blocks — a horizontal line with title, slightly indented for each nesting level. The exact styling is up to the GUI implementation, but the intent is lightweight, document-like flow.
 
