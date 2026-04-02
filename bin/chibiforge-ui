@@ -1,0 +1,4 @@
+#!/bin/bash
+# ChibiForge UI wrapper
+DIR="$(cd "$(dirname "$0")" && pwd)"
+exec java -jar "$DIR/chibiforge-ui.jar" "$@"

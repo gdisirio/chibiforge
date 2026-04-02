@@ -22,4 +22,5 @@
         <module>cli</module>
         <module>ui</module>
     </modules>
+
 </project>
