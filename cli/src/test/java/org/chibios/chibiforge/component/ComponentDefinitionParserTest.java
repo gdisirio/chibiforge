@@ -37,14 +37,14 @@ class ComponentDefinitionParserTest {
     static void parseFixture() throws Exception {
         ComponentDefinitionParser parser = new ComponentDefinitionParser();
         try (InputStream is = ComponentDefinitionParserTest.class.getResourceAsStream(
-                "/fixtures/simple-component/component/schema.xml")) {
+                "/fixtures/org.chibios.chibiforge.components.hal.stm32f4xx/component/schema.xml")) {
             def = parser.parse(is);
         }
     }
 
     @Test
     void rootAttributes() {
-        assertThat(def.getId()).isEqualTo("org.chibios.hal.stm32f4xx");
+        assertThat(def.getId()).isEqualTo("org.chibios.chibiforge.components.hal.stm32f4xx");
         assertThat(def.getName()).isEqualTo("HAL STM32F4xx");
         assertThat(def.getVersion()).isEqualTo("1.0.0");
         assertThat(def.isHidden()).isFalse();

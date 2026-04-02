@@ -37,7 +37,7 @@ class ConfigLoaderTest {
         assertThat(config.getTargets()).containsExactly("default");
         assertThat(config.getComponents()).hasSize(1);
         assertThat(config.getComponents().get(0).getComponentId())
-                .isEqualTo("org.chibios.hal.stm32f4xx");
+                .isEqualTo("org.chibios.chibiforge.components.hal.stm32f4xx");
     }
 
     @Test
@@ -46,9 +46,9 @@ class ConfigLoaderTest {
         assertThat(config.getTargets()).containsExactly("default", "debug", "release");
         assertThat(config.getComponents()).hasSize(2);
         assertThat(config.getComponents().get(0).getComponentId())
-                .isEqualTo("org.chibios.hal.stm32f4xx");
+                .isEqualTo("org.chibios.chibiforge.components.hal.stm32f4xx");
         assertThat(config.getComponents().get(1).getComponentId())
-                .isEqualTo("org.chibios.board.stm32f4xx");
+                .isEqualTo("org.chibios.chibiforge.components.board.stm32f4xx");
     }
 
     @Test

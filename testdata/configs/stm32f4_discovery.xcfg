@@ -8,8 +8,8 @@
     <target id="default"/>
   </targets>
   <components>
-    <component id="org.chibios.kernel.port.stm32f4xx"/>
-    <component id="org.chibios.board.stm32f4xx">
+    <component id="org.chibios.chibiforge.components.kernel.port.stm32f4xx"/>
+    <component id="org.chibios.chibiforge.components.board.stm32f4xx">
       <identification>
         <board_identifier>ST_STM32F4_DISCOVERY</board_identifier>
         <board_name>STMicroelectronics STM32F4-Discovery</board_name>

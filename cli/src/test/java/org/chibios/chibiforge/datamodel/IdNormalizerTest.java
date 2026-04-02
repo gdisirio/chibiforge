@@ -25,8 +25,8 @@ class IdNormalizerTest {
 
     @Test
     void specExample_dotSeparatedId() {
-        assertThat(IdNormalizer.normalize("org.chibios.hal.stm32f4xx"))
-                .isEqualTo("org_chibios_hal_stm32f4xx");
+        assertThat(IdNormalizer.normalize("org.chibios.chibiforge.components.hal.stm32f4xx"))
+                .isEqualTo("org_chibios_chibiforge_components_hal_stm32f4xx");
     }
 
     @Test

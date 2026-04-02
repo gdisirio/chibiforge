@@ -37,7 +37,7 @@ class StaticPayloadCopierTest {
     @BeforeEach
     void setup() throws Exception {
         Path componentDir = Paths.get(
-                getClass().getResource("/fixtures/simple-component/component").toURI());
+                getClass().getResource("/fixtures/org.chibios.chibiforge.components.hal.stm32f4xx/component").toURI());
         content = new FilesystemContent(componentDir);
         copier = new StaticPayloadCopier();
     }
@@ -47,9 +47,9 @@ class StaticPayloadCopierTest {
         GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", false, false);
         GenerationReport report = new GenerationReport();
 
-        copier.copyPayloads("org.chibios.hal.stm32f4xx", content, ctx, report);
+        copier.copyPayloads("org.chibios.chibiforge.components.hal.stm32f4xx", content, ctx, report);
 
-        Path expected = tempDir.resolve("generated/org_chibios_hal_stm32f4xx/static_file.c");
+        Path expected = tempDir.resolve("generated/org_chibios_chibiforge_components_hal_stm32f4xx/static_file.c");
         assertThat(expected).exists();
         assertThat(Files.readString(expected)).contains("hal_init");
     }
@@ -59,7 +59,7 @@ class StaticPayloadCopierTest {
         GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", false, false);
         GenerationReport report = new GenerationReport();
 
-        copier.copyPayloads("org.chibios.hal.stm32f4xx", content, ctx, report);
+        copier.copyPayloads("org.chibios.chibiforge.components.hal.stm32f4xx", content, ctx, report);
 
         Path expected = tempDir.resolve("always.txt");
         assertThat(expected).exists();
@@ -71,7 +71,7 @@ class StaticPayloadCopierTest {
         GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", false, false);
         GenerationReport report = new GenerationReport();
 
-        copier.copyPayloads("org.chibios.hal.stm32f4xx", content, ctx, report);
+        copier.copyPayloads("org.chibios.chibiforge.components.hal.stm32f4xx", content, ctx, report);
 
         Path expected = tempDir.resolve("once.txt");
         assertThat(expected).exists();
@@ -87,7 +87,7 @@ class StaticPayloadCopierTest {
         GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", false, false);
         GenerationReport report = new GenerationReport();
 
-        copier.copyPayloads("org.chibios.hal.stm32f4xx", content, ctx, report);
+        copier.copyPayloads("org.chibios.chibiforge.components.hal.stm32f4xx", content, ctx, report);
 
         assertThat(Files.readString(existing)).isEqualTo("user modified");
         assertThat(report.countByType(GenerationAction.Type.SKIP)).isGreaterThanOrEqualTo(1);
@@ -98,7 +98,7 @@ class StaticPayloadCopierTest {
         GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", true, false);
         GenerationReport report = new GenerationReport();
 
-        copier.copyPayloads("org.chibios.hal.stm32f4xx", content, ctx, report);
+        copier.copyPayloads("org.chibios.chibiforge.components.hal.stm32f4xx", content, ctx, report);
 
         // No files should be created
         assertThat(tempDir.resolve("generated")).doesNotExist();

@@ -36,7 +36,7 @@ class ComponentRegistryTest {
 
     @BeforeAll
     static void setup() throws URISyntaxException {
-        // The fixtures directory has simple-component/ which contains component/schema.xml
+        // The fixtures directory has a normalized sample component container.
         componentsRoot = Paths.get(
                 ComponentRegistryTest.class.getResource("/fixtures").toURI());
     }
@@ -44,17 +44,17 @@ class ComponentRegistryTest {
     @Test
     void discoversComponent() throws IOException {
         ComponentRegistry registry = ComponentRegistry.fromFilesystem(componentsRoot);
-        // simple-component has schema.xml with id="org.chibios.hal.stm32f4xx"
+        // The sample fixture has schema.xml with id="org.chibios.chibiforge.components.hal.stm32f4xx"
         assertThat(registry.size()).isGreaterThanOrEqualTo(1);
-        assertThat(registry.componentIds()).contains("org.chibios.hal.stm32f4xx");
+        assertThat(registry.componentIds()).contains("org.chibios.chibiforge.components.hal.stm32f4xx");
     }
 
     @Test
     void lookupReturnsContainer() throws IOException {
         ComponentRegistry registry = ComponentRegistry.fromFilesystem(componentsRoot);
-        ComponentContainer container = registry.lookup("org.chibios.hal.stm32f4xx");
+        ComponentContainer container = registry.lookup("org.chibios.chibiforge.components.hal.stm32f4xx");
         assertThat(container).isNotNull();
-        assertThat(container.getId()).isEqualTo("org.chibios.hal.stm32f4xx");
+        assertThat(container.getId()).isEqualTo("org.chibios.chibiforge.components.hal.stm32f4xx");
     }
 
     @Test
@@ -78,7 +78,7 @@ class ComponentRegistryTest {
     @Test
     void contentListsFiles() throws IOException {
         ComponentRegistry registry = ComponentRegistry.fromFilesystem(componentsRoot);
-        ComponentContainer container = registry.lookup("org.chibios.hal.stm32f4xx");
+        ComponentContainer container = registry.lookup("org.chibios.chibiforge.components.hal.stm32f4xx");
         var content = container.getComponentContent();
 
         assertThat(content.exists("schema.xml")).isTrue();

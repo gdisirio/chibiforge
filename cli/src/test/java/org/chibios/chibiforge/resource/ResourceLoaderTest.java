@@ -42,7 +42,7 @@ class ResourceLoaderTest {
     @BeforeAll
     static void setup() throws Exception {
         Path componentDir = Paths.get(
-                ResourceLoaderTest.class.getResource("/fixtures/simple-component/component").toURI());
+                ResourceLoaderTest.class.getResource("/fixtures/org.chibios.chibiforge.components.hal.stm32f4xx/component").toURI());
         content = new FilesystemContent(componentDir);
 
         ComponentDefinitionParser parser = new ComponentDefinitionParser();

@@ -100,7 +100,7 @@ class DataModelBuilderTest {
 
     @Test
     void componentsAccessViaCTemplate() throws Exception {
-        String templateStr = "${components.org_chibios_hal_stm32f4xx.initialization_settings.vdd}";
+        String templateStr = "${components.org_chibios_chibiforge_components_hal_stm32f4xx.initialization_settings.vdd}";
         Template template = new Template("test", templateStr, fmConfig);
 
         StringWriter out = new StringWriter();

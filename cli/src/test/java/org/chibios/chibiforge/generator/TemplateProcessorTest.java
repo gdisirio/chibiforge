@@ -40,7 +40,7 @@ class TemplateProcessorTest {
     @Test
     void processesClassicTemplate(@TempDir Path tempDir) throws Exception {
         Path componentDir = Paths.get(
-                getClass().getResource("/fixtures/simple-component/component").toURI());
+                getClass().getResource("/fixtures/org.chibios.chibiforge.components.hal.stm32f4xx/component").toURI());
         FilesystemContent content = new FilesystemContent(componentDir);
 
         // Load config
@@ -80,7 +80,7 @@ class TemplateProcessorTest {
     @Test
     void dryRunDoesNotWriteTemplates(@TempDir Path tempDir) throws Exception {
         Path componentDir = Paths.get(
-                getClass().getResource("/fixtures/simple-component/component").toURI());
+                getClass().getResource("/fixtures/org.chibios.chibiforge.components.hal.stm32f4xx/component").toURI());
         FilesystemContent content = new FilesystemContent(componentDir);
 
         ConfigLoader loader = new ConfigLoader();
