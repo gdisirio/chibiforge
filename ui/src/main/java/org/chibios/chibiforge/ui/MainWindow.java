@@ -216,6 +216,11 @@ public class MainWindow {
         // Bind title bar to config file path
         model.configFileProperty().addListener((obs, old, path) -> updateWindowTitle());
         model.configurationProperty().addListener((obs, old, config) -> updateWindowTitle());
+        model.configurationProperty().addListener((obs, old, config) -> updateStatusBar());
+        model.registryProperty().addListener((obs, old, registry) -> updateStatusBar());
+        model.activeTargetProperty().addListener((obs, old, target) -> updateStatusBar());
+        model.validationErrorCountProperty().addListener((obs, old, count) -> updateStatusBar());
+        model.getWarnings().addListener((javafx.collections.ListChangeListener<String>) change -> updateStatusBar());
 
         // Bind status bar to model
         model.modifiedProperty().addListener((obs, old, mod) -> {
@@ -385,6 +390,7 @@ public class MainWindow {
             showWelcomeScreen();
             return;
         }
+        configForm.clearView();
         breadcrumb.setPath("Components");
         centerPanel.getChildren().clear();
         centerPanel.getChildren().add(componentsView.getRoot());
@@ -400,6 +406,11 @@ public class MainWindow {
      */
     private void showConfigurationForm(String componentId) {
         lastViewedComponentId = componentId;
+        if (model.getRegistry() == null) {
+            showUnresolvedComponentView(componentId,
+                    "No component registry is available for the current configuration.");
+            return;
+        }
         try {
             ComponentContainer container = model.getRegistry().lookup(componentId);
             ComponentDefinition def = container.loadDefinition();
@@ -423,10 +434,48 @@ public class MainWindow {
             inspector.showComponentOutline(def);
             inspector.showComponentHelp(def);
         } catch (Exception e) {
-            Alert alert = new Alert(Alert.AlertType.ERROR,
-                    "Failed to load component form:\n" + e.getMessage(), ButtonType.OK);
-            alert.showAndWait();
+            showUnresolvedComponentView(componentId, e.getMessage());
         }
+    }
+
+    private void showUnresolvedComponentView(String componentId, String detail) {
+        breadcrumb.setPath("Components", getComponentName(componentId));
+
+        Label title = new Label("Component Source Not Resolved");
+        title.getStyleClass().add("panel-header");
+
+        Label summary = new Label("The component '" + componentId + "' is present in the configuration but could not be resolved from the current component roots.");
+        summary.setWrapText(true);
+
+        VBox content = new VBox(12, title, summary);
+        content.setPadding(new Insets(16));
+
+        if (!model.getResolvedComponentRoots().isEmpty()) {
+            Label rootsHeader = new Label("Resolved component roots:");
+            rootsHeader.getStyleClass().add("section-description");
+            content.getChildren().add(rootsHeader);
+            for (Path rootPath : model.getResolvedComponentRoots()) {
+                Label rootLabel = new Label(rootPath.toString());
+                rootLabel.setWrapText(true);
+                content.getChildren().add(rootLabel);
+            }
+        }
+
+        if (detail != null && !detail.isBlank()) {
+            Label detailLabel = new Label("Details: " + detail);
+            detailLabel.setWrapText(true);
+            content.getChildren().add(detailLabel);
+        }
+
+        Label guidance = new Label("Add or correct component roots, then reopen the configuration.");
+        guidance.setWrapText(true);
+        content.getChildren().add(guidance);
+
+        centerPanel.getChildren().setAll(content);
+        configForm.clearView();
+        inspector.showConfigurationHelp();
+        inspector.refreshFiles();
+        updateStatusBar();
     }
 
     /**
@@ -534,12 +583,12 @@ public class MainWindow {
 
     private void updateStatusBar() {
         var config = model.getConfiguration();
-        var registry = model.getRegistry();
         if (config != null) {
             int compCount = config.getComponents().size();
-            int regCount = registry != null ? registry.size() : 0;
-            statusLeft.setText(compCount + " component(s) configured, " +
-                    regCount + " available, target: " + model.getActiveTarget());
+            int propertyCount = countConfiguredProperties();
+            statusLeft.setText(compCount + " component(s) · " +
+                    propertyCount + " propert" + (propertyCount == 1 ? "y" : "ies") +
+                    " · target: " + model.getActiveTarget());
         } else {
             statusLeft.setText("No configuration loaded");
         }
@@ -547,12 +596,53 @@ public class MainWindow {
         if (!model.getWarnings().isEmpty()) {
             rightParts.add(model.getWarnings().size() + " warning(s)");
         }
+        rightParts.add(model.getValidationErrorCount() + " validation error(s)");
         if (model.getConfiguration() == null && !model.isModified()) {
             rightParts.add("Ready");
         } else {
             rightParts.add(model.isModified() ? "Modified" : "Saved");
         }
         statusRight.setText(String.join(" · ", rightParts));
+    }
+
+    private int countConfiguredProperties() {
+        if (model.getConfiguration() == null || model.getRegistry() == null) {
+            return 0;
+        }
+        int total = 0;
+        for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
+            try {
+                ComponentContainer container = model.getRegistry().lookup(entry.getComponentId());
+                ComponentDefinition def = container.loadDefinition();
+                total += countProperties(def.getSections());
+            } catch (Exception ignored) {
+            }
+        }
+        return total;
+    }
+
+    private int countProperties(List<SectionDef> sections) {
+        int total = 0;
+        for (SectionDef section : sections) {
+            for (Object child : section.getChildren()) {
+                if (child instanceof PropertyDef prop) {
+                    total += 1;
+                    if (!prop.getNestedSections().isEmpty()) {
+                        total += countProperties(prop.getNestedSections());
+                    }
+                } else if (child instanceof LayoutDef layout) {
+                    for (Object layoutChild : layout.getChildren()) {
+                        if (layoutChild instanceof PropertyDef prop) {
+                            total += 1;
+                            if (!prop.getNestedSections().isEmpty()) {
+                                total += countProperties(prop.getNestedSections());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return total;
     }
 
     private ResolvedComponentSources resolveComponentSources(Path configFile) {
@@ -855,6 +945,7 @@ public class MainWindow {
     }
 
     private void showWelcomeScreen() {
+        configForm.clearView();
         breadcrumb.setPath("Welcome");
 
         Label title = new Label("ChibiForge");

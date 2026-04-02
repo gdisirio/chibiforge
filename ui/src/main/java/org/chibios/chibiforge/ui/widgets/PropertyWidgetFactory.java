@@ -31,8 +31,10 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -43,13 +45,16 @@ public class PropertyWidgetFactory {
 
     private LiveDataModel liveModel;
     private Consumer<String> onDomUpdate;
+    private Consumer<Integer> onValidationChange;
     private String activeTarget = "default";
 
     private final List<ConditionBinding> conditionBindings = new ArrayList<>();
     private final List<TargetBinding> targetBindings = new ArrayList<>();
+    private final Set<Node> invalidNodes = new HashSet<>();
 
     public void setLiveModel(LiveDataModel liveModel) { this.liveModel = liveModel; }
     public void setOnDomUpdate(Consumer<String> onDomUpdate) { this.onDomUpdate = onDomUpdate; }
+    public void setOnValidationChange(Consumer<Integer> onValidationChange) { this.onValidationChange = onValidationChange; }
     public void setActiveTarget(String target) { this.activeTarget = target; }
 
     /**
@@ -196,6 +201,12 @@ public class PropertyWidgetFactory {
     public void clearBindings() {
         conditionBindings.clear();
         targetBindings.clear();
+        invalidNodes.clear();
+        fireValidationChange();
+    }
+
+    public int getValidationErrorCount() {
+        return invalidNodes.size();
     }
 
     // --- Widget creation ---
@@ -247,10 +258,10 @@ public class PropertyWidgetFactory {
             if (!isFocused) {
                 String text = field.getText();
                 if (regex != null && !text.isEmpty() && !text.matches(regex)) {
-                    field.getStyleClass().add("field-error");
+                    markInvalid(field);
                     return;
                 }
-                field.getStyleClass().remove("field-error");
+                clearInvalid(field);
                 writeValue(propEl, text);
                 fireDomUpdate(prop.getName());
             }
@@ -269,18 +280,18 @@ public class PropertyWidgetFactory {
                 try {
                     int val = Integer.parseInt(text);
                     if (minStr != null && val < Integer.parseInt(minStr)) {
-                        field.getStyleClass().add("field-error");
+                        markInvalid(field);
                         return;
                     }
                     if (maxStr != null && val > Integer.parseInt(maxStr)) {
-                        field.getStyleClass().add("field-error");
+                        markInvalid(field);
                         return;
                     }
-                    field.getStyleClass().remove("field-error");
+                    clearInvalid(field);
                     writeValue(propEl, text);
                     fireDomUpdate(prop.getName());
                 } catch (NumberFormatException e) {
-                    field.getStyleClass().add("field-error");
+                    markInvalid(field);
                 }
             }
         });
@@ -317,11 +328,11 @@ public class PropertyWidgetFactory {
                 if (maxSizeStr != null) {
                     int max = Integer.parseInt(maxSizeStr);
                     if (text.length() > max) {
-                        area.getStyleClass().add("field-error");
+                        markInvalid(area);
                         return;
                     }
                 }
-                area.getStyleClass().remove("field-error");
+                clearInvalid(area);
                 writeValue(propEl, text);
                 fireDomUpdate(prop.getName());
             }
@@ -385,6 +396,28 @@ public class PropertyWidgetFactory {
 
     private void fireDomUpdate(String propertyName) {
         if (onDomUpdate != null) onDomUpdate.accept(propertyName);
+    }
+
+    private void markInvalid(Node node) {
+        if (!node.getStyleClass().contains("field-error")) {
+            node.getStyleClass().add("field-error");
+        }
+        if (invalidNodes.add(node)) {
+            fireValidationChange();
+        }
+    }
+
+    private void clearInvalid(Node node) {
+        node.getStyleClass().remove("field-error");
+        if (invalidNodes.remove(node)) {
+            fireValidationChange();
+        }
+    }
+
+    private void fireValidationChange() {
+        if (onValidationChange != null) {
+            onValidationChange.accept(invalidNodes.size());
+        }
     }
 
     // --- Binding records ---

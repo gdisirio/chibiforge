@@ -65,6 +65,7 @@ public class ConfigurationForm {
             model.setModified(true);
             widgetFactory.reEvaluateConditions();
         });
+        widgetFactory.setOnValidationChange(model::setValidationErrorCount);
 
         formContent = new VBox();
         formContent.setSpacing(4);
@@ -89,6 +90,7 @@ public class ConfigurationForm {
                               ComponentContainer container) {
         formContent.getChildren().clear();
         widgetFactory.clearBindings();
+        model.setValidationErrorCount(0);
         this.componentContent = container.getComponentContent();
 
         try {
@@ -124,6 +126,7 @@ public class ConfigurationForm {
     public void loadListItem(PropertyDef listProp, Element itemElement) {
         formContent.getChildren().clear();
         widgetFactory.clearBindings();
+        model.setValidationErrorCount(0);
 
         for (SectionDef section : listProp.getNestedSections()) {
             Node sectionNode = renderSection(section, itemElement);
@@ -132,6 +135,12 @@ public class ConfigurationForm {
 
         // Initial evaluation of all @cond: expressions in the drill-down view.
         widgetFactory.reEvaluateConditions();
+    }
+
+    public void clearView() {
+        formContent.getChildren().clear();
+        widgetFactory.clearBindings();
+        model.setValidationErrorCount(0);
     }
 
     private Node renderSection(SectionDef section, Element parentConfigElement) {

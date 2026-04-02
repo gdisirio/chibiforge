@@ -43,6 +43,7 @@ public class AppModel {
     private final ObjectProperty<ComponentRegistry> registry = new SimpleObjectProperty<>();
     private final StringProperty activeTarget = new SimpleStringProperty("default");
     private final BooleanProperty modified = new SimpleBooleanProperty(false);
+    private final IntegerProperty validationErrorCount = new SimpleIntegerProperty(0);
     private final ObservableList<String> targets = FXCollections.observableArrayList();
     private final ObservableList<String> warnings = FXCollections.observableArrayList();
     private final ObservableList<String> unresolvedComponents = FXCollections.observableArrayList();
@@ -79,6 +80,10 @@ public class AppModel {
     public boolean isModified() { return modified.get(); }
     public void setModified(boolean mod) { modified.set(mod); }
     public BooleanProperty modifiedProperty() { return modified; }
+
+    public int getValidationErrorCount() { return validationErrorCount.get(); }
+    public void setValidationErrorCount(int count) { validationErrorCount.set(count); }
+    public IntegerProperty validationErrorCountProperty() { return validationErrorCount; }
 
     public ObservableList<String> getTargets() { return targets; }
     public ObservableList<String> getWarnings() { return warnings; }
