@@ -44,7 +44,7 @@ public class FilesystemContainer implements ComponentContainer {
         try {
             return loadDefinition().getId();
         } catch (Exception e) {
-            throw new RuntimeException("Failed to load component ID from " + containerRoot, e);
+            throw new IllegalArgumentException("Failed to load component identity from " + containerRoot, e);
         }
     }
 
@@ -53,10 +53,21 @@ public class FilesystemContainer implements ComponentContainer {
         if (cachedDefinition == null) {
             ComponentDefinitionParser parser = new ComponentDefinitionParser();
             try (InputStream is = content.open("schema.xml")) {
-                cachedDefinition = parser.parse(is);
+                ComponentDefinition definition = parser.parse(is);
+                validateContainerIdentity(definition);
+                cachedDefinition = definition;
             }
         }
         return cachedDefinition;
+    }
+
+    private void validateContainerIdentity(ComponentDefinition definition) {
+        String containerName = containerRoot.getFileName() != null ? containerRoot.getFileName().toString() : "";
+        if (!definition.getId().equals(containerName)) {
+            throw new IllegalArgumentException(
+                    "Filesystem component identity mismatch: directory name '" + containerName +
+                    "' does not match schema.xml id '" + definition.getId() + "'");
+        }
     }
 
     @Override

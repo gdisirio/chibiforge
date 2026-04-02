@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 
 /**
  * A component container backed by a plugin JAR file.
@@ -104,7 +105,7 @@ public class JarContainer implements ComponentContainer {
         try {
             return loadDefinition().getId();
         } catch (Exception e) {
-            throw new RuntimeException("Failed to load component ID from " + jarPath, e);
+            throw new IllegalArgumentException("Failed to load component identity from " + jarPath, e);
         }
     }
 
@@ -113,10 +114,41 @@ public class JarContainer implements ComponentContainer {
         if (cachedDefinition == null) {
             ComponentDefinitionParser parser = new ComponentDefinitionParser();
             try (InputStream is = content.open("schema.xml")) {
-                cachedDefinition = parser.parse(is);
+                ComponentDefinition definition = parser.parse(is);
+                validateContainerIdentity(definition);
+                cachedDefinition = definition;
             }
         }
         return cachedDefinition;
+    }
+
+    private void validateContainerIdentity(ComponentDefinition definition) throws IOException {
+        String bundleSymbolicName = readBundleSymbolicName();
+        if (!definition.getId().equals(bundleSymbolicName)) {
+            throw new IllegalArgumentException(
+                    "Plugin component identity mismatch: Bundle-SymbolicName '" + bundleSymbolicName +
+                    "' does not match schema.xml id '" + definition.getId() + "'");
+        }
+
+        String expectedJarName = definition.getId() + "_" + definition.getVersion() + ".jar";
+        String actualJarName = jarPath.getFileName() != null ? jarPath.getFileName().toString() : "";
+        if (!expectedJarName.equals(actualJarName)) {
+            throw new IllegalArgumentException(
+                    "Plugin component identity mismatch: JAR name '" + actualJarName +
+                    "' does not match expected '" + expectedJarName + "'");
+        }
+    }
+
+    private String readBundleSymbolicName() throws IOException {
+        Manifest manifest = jarFile.getManifest();
+        if (manifest == null) {
+            throw new IllegalArgumentException("Plugin JAR is missing META-INF/MANIFEST.MF");
+        }
+        String bundleSymbolicName = manifest.getMainAttributes().getValue("Bundle-SymbolicName");
+        if (bundleSymbolicName == null || bundleSymbolicName.isBlank()) {
+            throw new IllegalArgumentException("Plugin JAR is missing Bundle-SymbolicName");
+        }
+        return bundleSymbolicName.trim();
     }
 
     @Override

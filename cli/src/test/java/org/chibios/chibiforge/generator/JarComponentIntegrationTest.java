@@ -26,7 +26,9 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.jar.JarEntry;
+import java.util.jar.Attributes;
 import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,8 +41,11 @@ class JarComponentIntegrationTest {
         pluginsRoot = tempDir.resolve("plugins");
         Files.createDirectories(pluginsRoot);
 
-        Path jarPath = pluginsRoot.resolve("test.jarcomp.jar");
-        try (JarOutputStream jar = new JarOutputStream(new FileOutputStream(jarPath.toFile()))) {
+        Path jarPath = pluginsRoot.resolve("test.jarcomp_1.0.0.jar");
+        Manifest manifest = new Manifest();
+        manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        manifest.getMainAttributes().putValue("Bundle-SymbolicName", "test.jarcomp");
+        try (JarOutputStream jar = new JarOutputStream(new FileOutputStream(jarPath.toFile()), manifest)) {
             // plugin.xml with ChibiForge extension point
             addEntry(jar, "plugin.xml", """
                     <plugin>
