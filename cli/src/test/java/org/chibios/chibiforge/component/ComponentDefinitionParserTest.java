@@ -130,11 +130,13 @@ class ComponentDefinitionParserTest {
     }
 
     @Test
-    void defaultVisibleAndEditableWhenAttributeMissing() {
+    void staticVisibleAndEditable() {
         SectionDef section = def.getSections().get(0);
         PropertyDef doNotInit = (PropertyDef) section.getChildren().get(0);
         assertThat(doNotInit.isVisible()).isTrue();
+        assertThat(doNotInit.getVisible()).isEqualTo("true");
         assertThat(doNotInit.isEditable()).isTrue();
+        assertThat(doNotInit.getEditable()).isEqualTo("true");
         assertThat(doNotInit.hasEditableCondition()).isFalse();
         assertThat(doNotInit.hasVisibleCondition()).isFalse();
     }

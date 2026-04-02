@@ -65,6 +65,8 @@ public class ComponentDefinitionParser {
                 case "requires" -> requires = parseFeatures(child);
                 case "provides" -> provides = parseFeatures(child);
                 case "sections" -> sections = parseSections(child);
+                default -> throw new IllegalArgumentException(
+                        "Unexpected element <" + child.getLocalName() + "> under <component>");
             }
         }
 
@@ -120,8 +122,8 @@ public class ComponentDefinitionParser {
     private SectionDef parseSection(Element sectionEl) {
         String name = requireAttr(sectionEl, "name");
         boolean expanded = "true".equals(requireAttr(sectionEl, "expanded"));
-        String editable = sectionEl.hasAttribute("editable") ? sectionEl.getAttribute("editable") : "true";
-        String visible = sectionEl.hasAttribute("visible") ? sectionEl.getAttribute("visible") : "true";
+        String editable = requireAttr(sectionEl, "editable");
+        String visible = requireAttr(sectionEl, "visible");
 
         String description = null;
         List<Object> children = new ArrayList<>();
@@ -143,8 +145,8 @@ public class ComponentDefinitionParser {
         PropertyDef.Type type = PropertyDef.Type.fromString(requireAttr(propEl, "type"));
         String brief = requireAttr(propEl, "brief");
         boolean required = "true".equals(requireAttr(propEl, "required"));
-        String editable = requireAttr(propEl, "editable"); // "true", "false", or "@cond:xpath"
-        String visible = propEl.hasAttribute("visible") ? propEl.getAttribute("visible") : "true";
+        String editable = requireAttr(propEl, "editable");
+        String visible = requireAttr(propEl, "visible");
         String defaultValue = requireAttr(propEl, "default");
 
         String intMin = optAttr(propEl, "int_min");

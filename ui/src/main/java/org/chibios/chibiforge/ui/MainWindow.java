@@ -407,17 +407,55 @@ public class MainWindow {
             var components = model.getConfiguration().getComponents();
             if (components.isEmpty()) return;
             var element = components.get(0).getConfigElement();
-            // Navigate up to the document root element
             var docElement = element.getOwnerDocument().getDocumentElement();
 
+            // Collect text property names from all component schemas
+            java.util.Set<String> textPropertyNames = collectTextPropertyNames();
+
             XcfgWriter writer = new XcfgWriter();
-            writer.save(docElement, model.getConfigFile());
+            writer.save(docElement, model.getConfigFile(), textPropertyNames);
             model.setModified(false);
             inspector.appendLog("Saved: " + model.getConfigFile());
         } catch (Exception e) {
             Alert alert = new Alert(Alert.AlertType.ERROR,
                     "Failed to save:\n" + e.getMessage(), ButtonType.OK);
             alert.showAndWait();
+        }
+    }
+
+    private java.util.Set<String> collectTextPropertyNames() {
+        java.util.Set<String> names = new java.util.HashSet<>();
+        if (model.getRegistry() == null || model.getConfiguration() == null) return names;
+
+        for (var entry : model.getConfiguration().getComponents()) {
+            try {
+                var container = model.getRegistry().lookup(entry.getComponentId());
+                var def = container.loadDefinition();
+                collectTextProperties(def.getSections(), names);
+            } catch (Exception ignored) {}
+        }
+        return names;
+    }
+
+    private void collectTextProperties(java.util.List<org.chibios.chibiforge.component.SectionDef> sections,
+                                       java.util.Set<String> names) {
+        for (var section : sections) {
+            for (Object child : section.getChildren()) {
+                if (child instanceof org.chibios.chibiforge.component.PropertyDef prop) {
+                    if (prop.getType() == org.chibios.chibiforge.component.PropertyDef.Type.TEXT) {
+                        names.add(prop.getName());
+                    }
+                    collectTextProperties(prop.getNestedSections(), names);
+                } else if (child instanceof org.chibios.chibiforge.component.LayoutDef layout) {
+                    for (Object lc : layout.getChildren()) {
+                        if (lc instanceof org.chibios.chibiforge.component.PropertyDef prop) {
+                            if (prop.getType() == org.chibios.chibiforge.component.PropertyDef.Type.TEXT) {
+                                names.add(prop.getName());
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

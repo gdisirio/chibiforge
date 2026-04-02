@@ -779,3 +779,195 @@ Required libraries:
 - **javax.xml.parsers** (JDK built-in): XML parsing for `schema.xml`, `chibiforge.xcfg`, resources.
 
 Build tool: **Gradle** (recommended) or Maven.
+
+---
+
+## 16 Preset Management
+
+### 16.1 General
+
+A preset is a predefined configuration fragment for a single component.
+
+Presets:
+
+* are scoped to a specific component ID
+* are applied only through explicit user actions
+* do not participate in dependency resolution
+* do not create persistent links in the configuration
+
+Applying a preset replaces the component configuration in memory.
+
+---
+
+### 16.2 Preset Sources
+
+#### 16.2.1 Bundled Presets
+
+A component container MAY include presets under:
+
+`component/presets/`
+
+Bundled presets:
+
+* are read-only
+* are associated with the owning component
+* MAY be declared in `schema.xml` or discovered by convention
+
+---
+
+#### 16.2.2 External Presets
+
+The UI SHALL allow loading presets from arbitrary filesystem locations.
+
+External presets:
+
+* are selected via file chooser
+* MUST be validated before application
+
+---
+
+### 16.3 Load Preset
+
+#### 16.3.1 Invocation
+
+The component editor SHALL provide a *Load Preset* action.
+
+The UI SHALL allow:
+
+* selection of bundled presets
+* selection of an external preset file
+
+---
+
+#### 16.3.2 Validation
+
+Before applying a preset:
+
+* the preset MUST declare a `componentId`
+* the `componentId` MUST match the current component
+* invalid presets MUST be rejected
+
+---
+
+#### 16.3.3 Apply Semantics
+
+Applying a preset SHALL:
+
+* replace the current component configuration in memory
+* NOT modify the preset file
+* NOT create any persistent reference to the preset
+
+If the component contains data, the UI SHOULD request confirmation.
+
+---
+
+### 16.4 Target Semantics
+
+Presets are target-local configuration snapshots.
+
+Presets:
+
+* SHALL NOT define or modify project targets
+* SHALL NOT contain target declarations
+* SHALL be applied to the currently selected target context
+
+---
+
+#### 16.4.1 Single-target Properties
+
+The value SHALL be replaced.
+
+---
+
+#### 16.4.2 Multi-target Properties
+
+For each property:
+
+* if an explicit value exists for the active target, it SHALL be replaced
+* otherwise, the `default` value SHALL be replaced
+
+---
+
+#### 16.4.3 Optional Target Override Creation
+
+The UI MAY provide an option to create explicit values for inherited multi-target properties.
+
+When enabled:
+
+* applies only if active target is not `default`
+* if no explicit value exists for the active target:
+
+  * a target-specific value SHALL be created
+  * the preset value SHALL be written to that target
+* existing target-specific values SHALL always be replaced
+
+When disabled:
+
+* inherited values SHALL be written to `default`
+
+---
+
+### 16.5 Save Preset
+
+#### 16.5.1 Invocation
+
+The component editor SHALL provide a *Save Preset As...* action.
+
+---
+
+#### 16.5.2 Behavior
+
+Saving a preset SHALL:
+
+* serialize the current component configuration
+* write the preset to a user-selected file
+* NOT modify bundled presets or component containers
+
+---
+
+#### 16.5.3 Export Semantics
+
+The saved preset SHALL reflect:
+
+* the currently selected target
+* the effective values visible in the editor
+
+This includes:
+
+* explicit target values
+* inherited values resolved from `default`
+
+The saved preset SHALL be a fully materialized configuration snapshot.
+
+---
+
+### 16.6 Post-Load Behavior
+
+After applying a preset, the UI SHALL:
+
+* refresh the component editor
+* re-evaluate all `@ref:` and `@cond:` expressions
+* mark the configuration as modified
+
+---
+
+### 16.7 Error Handling
+
+The UI SHALL report:
+
+* invalid XML
+* mismatched `componentId`
+* schema validation errors
+
+Preset application SHALL be aborted on error.
+
+---
+
+### 16.8 Notes
+
+* Presets are intended for initialization, not inheritance
+* After loading, the configuration is fully editable
+* Presets may be shared across projects and users
+
+---
+

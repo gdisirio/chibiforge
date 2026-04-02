@@ -33,7 +33,7 @@
     <section name="Initialization Settings" expanded="true" editable="true" visible="true">
       <description>Core initialization parameters.</description>
       <property name="do_not_init" type="bool" brief="Skip initialization"
-                required="true" editable="true" default="false"/>
+                required="true" editable="true" visible="true" default="false"/>
       <property name="vdd" type="int" brief="Supply voltage in millivolts"
                 required="true"
                 editable="@cond:doc/initialization_settings/do_not_init = 'false'"
@@ -41,39 +41,39 @@
                 default="300" int_min="180" int_max="360"/>
       <layout columns="2" align="left">
         <property name="hse_frequency" type="int" brief="HSE frequency"
-                  required="true" editable="true" default="8000000"/>
+                  required="true" editable="true" visible="true" default="8000000"/>
         <property name="lse_frequency" type="int" brief="LSE frequency"
-                  required="true" editable="true" default="32768"/>
+                  required="true" editable="true" visible="true" default="32768"/>
         <image file="rsc/clock_tree.png" align="center">
           <text>Clock tree overview</text>
         </image>
         <empty/>
       </layout>
       <property name="system_clock_source" type="enum" brief="System clock source"
-                required="true" editable="true" default="PLL"
+                required="true" editable="true" visible="true" default="PLL"
                 enum_of="PLL,HSI,HSE"/>
       <property name="board_name" type="string" brief="Board name"
-                required="true" editable="true" default="STM32F4_BOARD"
+                required="true" editable="true" visible="true" default="STM32F4_BOARD"
                 string_regex="[A-Za-z0-9_]+"/>
       <property name="notes" type="text" brief="Configuration notes"
-                required="false" editable="true" default=""
+                required="false" editable="true" visible="true" default=""
                 text_maxsize="4096"/>
     </section>
     <section name="Pin Settings" expanded="false" editable="true" visible="true">
       <description>GPIO pin configuration.</description>
       <property name="pins" type="list" brief="Pin configuration list"
-                required="false" editable="true" default=""
+                required="false" editable="true" visible="true" default=""
                 list_columns="name:150,mode:100,speed">
         <sections>
           <section name="Pin Details" expanded="true" editable="true" visible="true">
             <description>Individual pin settings.</description>
             <property name="name" type="string" brief="Pin name"
-                      required="true" editable="true" default="PA0"/>
+                      required="true" editable="true" visible="true" default="PA0"/>
             <property name="mode" type="enum" brief="Pin mode"
-                      required="true" editable="true" default="INPUT"
+                      required="true" editable="true" visible="true" default="INPUT"
                       enum_of="INPUT,OUTPUT,ALTERNATE,ANALOG"/>
             <property name="speed" type="enum" brief="Pin speed"
-                      required="true" editable="true" default="LOW"
+                      required="true" editable="true" visible="true" default="LOW"
                       enum_of="LOW,MEDIUM,HIGH,VERY_HIGH"/>
           </section>
         </sections>

@@ -27,12 +27,12 @@
     <section name="settings" expanded="true" editable="true" visible="true">
       <description>Test settings.</description>
       <property name="greeting" type="string" brief="Greeting message"
-                required="true" editable="true" default="Hello"/>
+                required="true" editable="true" visible="true" default="Hello"/>
       <property name="count" type="int" brief="Repeat count"
-                required="true" editable="true" default="3"
+                required="true" editable="true" visible="true" default="3"
                 int_min="1" int_max="100"/>
       <property name="enabled" type="bool" brief="Enable feature"
-                required="true" editable="true" default="true"/>
+                required="true" editable="true" visible="true" default="true"/>
     </section>
   </sections>
 </component>

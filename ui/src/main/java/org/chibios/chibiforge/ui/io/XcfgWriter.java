@@ -28,26 +28,30 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 
 /**
  * Writes a chibiforge.xcfg configuration DOM to disk as formatted XML.
  *
- * Per spec §6.2.2, text property values containing XML-sensitive characters
- * are serialized using CDATA sections.
+ * Per spec §6.2.2, type="text" property values are always serialized
+ * using a single CDATA section, regardless of content.
  */
 public class XcfgWriter {
 
     /**
      * Save the configuration DOM to a file.
+     *
+     * @param configRootElement the document root element
+     * @param outputPath the file to write
+     * @param textPropertyNames set of property element names that are type="text"
+     *                          (these are always wrapped in CDATA)
      */
-    public void save(Element configRootElement, Path outputPath) throws Exception {
+    public void save(Element configRootElement, Path outputPath,
+                     Set<String> textPropertyNames) throws Exception {
         Document doc = configRootElement.getOwnerDocument();
 
-        // Strip whitespace-only text nodes so the transformer's indentation is clean
         stripWhitespaceNodes(doc.getDocumentElement());
-
-        // Convert leaf elements with XML-sensitive content to use CDATA
-        convertToCdata(doc.getDocumentElement());
+        convertTextToCdata(doc.getDocumentElement(), textPropertyNames);
 
         TransformerFactory tf = TransformerFactory.newInstance();
         Transformer transformer = tf.newTransformer();
@@ -64,7 +68,6 @@ public class XcfgWriter {
 
     /**
      * Recursively remove whitespace-only text nodes from the DOM.
-     * Preserves text content in leaf elements (actual property values).
      */
     private void stripWhitespaceNodes(Node node) {
         NodeList children = node.getChildNodes();
@@ -81,34 +84,18 @@ public class XcfgWriter {
     }
 
     /**
-     * Convert leaf elements whose text content contains XML-sensitive characters
-     * (&lt;, &gt;, &amp;) to use a CDATA section instead of escaped text.
-     * This preserves source code snippets verbatim in the xcfg file.
+     * Convert type="text" property elements to use CDATA sections.
+     * Only elements whose tag name is in textPropertyNames are converted.
      */
-    private void convertToCdata(Element element) {
+    private void convertTextToCdata(Element element, Set<String> textPropertyNames) {
         NodeList children = element.getChildNodes();
 
-        // Check if this is a leaf element (only text/CDATA children, no child elements)
-        boolean hasChildElements = false;
-        for (int i = 0; i < children.getLength(); i++) {
-            if (children.item(i).getNodeType() == Node.ELEMENT_NODE) {
-                hasChildElements = true;
-                break;
-            }
-        }
-
-        if (hasChildElements) {
-            // Recurse into child elements
-            for (int i = 0; i < children.getLength(); i++) {
-                if (children.item(i) instanceof Element child) {
-                    convertToCdata(child);
-                }
-            }
-        } else {
-            // Leaf element — check if content needs CDATA
+        // Check if this is a leaf element matching a text property name
+        String tagName = element.getLocalName() != null ? element.getLocalName() : element.getTagName();
+        if (textPropertyNames.contains(tagName) && isLeafElement(element)) {
             String text = element.getTextContent();
-            if (text != null && needsCdata(text)) {
-                // Remove existing text nodes
+            if (text != null && !text.isEmpty()) {
+                // Remove existing text/CDATA nodes
                 for (int i = children.getLength() - 1; i >= 0; i--) {
                     Node child = children.item(i);
                     if (child.getNodeType() == Node.TEXT_NODE
@@ -116,17 +103,27 @@ public class XcfgWriter {
                         element.removeChild(child);
                     }
                 }
-                // Add a single CDATA section
                 CDATASection cdata = element.getOwnerDocument().createCDATASection(text);
                 element.appendChild(cdata);
+            }
+            return;
+        }
+
+        // Recurse into child elements
+        for (int i = 0; i < children.getLength(); i++) {
+            if (children.item(i) instanceof Element child) {
+                convertTextToCdata(child, textPropertyNames);
             }
         }
     }
 
-    /**
-     * Check if text content needs CDATA wrapping.
-     */
-    private boolean needsCdata(String text) {
-        return text.contains("<") || text.contains(">") || text.contains("&");
+    private boolean isLeafElement(Element element) {
+        NodeList children = element.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            if (children.item(i).getNodeType() == Node.ELEMENT_NODE) {
+                return false;
+            }
+        }
+        return true;
     }
 }

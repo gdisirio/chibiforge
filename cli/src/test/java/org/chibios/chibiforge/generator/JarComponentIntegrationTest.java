@@ -64,10 +64,10 @@ class JarComponentIntegrationTest {
                       <requires/>
                       <provides><feature id="features.test.jarcomp"/></provides>
                       <sections>
-                        <section name="settings" expanded="true">
+                        <section name="settings" expanded="true" editable="true" visible="true">
                           <description>Settings.</description>
                           <property name="message" type="string" brief="Message"
-                                    required="true" editable="true" default="default"/>
+                                    required="true" editable="true" visible="true" default="default"/>
                         </section>
                       </sections>
                     </component>
@@ -224,10 +224,10 @@ class JarComponentIntegrationTest {
                   <requires/>
                   <provides/>
                   <sections>
-                    <section name="settings" expanded="true">
+                    <section name="settings" expanded="true" editable="true" visible="true">
                       <description>Settings.</description>
                       <property name="message" type="string" brief="Message"
-                                required="true" editable="true" default="default"/>
+                                required="true" editable="true" visible="true" default="default"/>
                     </section>
                   </sections>
                 </component>

@@ -21,13 +21,13 @@
     <section name="settings" expanded="true" editable="true" visible="true">
       <description>Settings with @ref: defaults.</description>
       <property name="max_channels" type="int" brief="Max ADC channels"
-                required="true" editable="false"
+                required="true" editable="false" visible="true"
                 default="@ref:limits/limits/adc/@max_channels"/>
       <property name="voltage" type="int" brief="Default voltage"
-                required="true" editable="true"
+                required="true" editable="true" visible="true"
                 default="@ref:limits/limits/voltage/@default"/>
       <property name="label" type="string" brief="Label"
-                required="true" editable="true"
+                required="true" editable="true" visible="true"
                 default="fixed_value"/>
     </section>
   </sections>
