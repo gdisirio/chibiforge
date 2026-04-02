@@ -166,6 +166,20 @@ public class ConfigurationForm {
         titledPane.setAnimated(false);
         titledPane.getStyleClass().add("section-pane");
 
+        // Section visibility
+        if (!section.isVisible() && !section.hasVisibleCondition()) {
+            titledPane.setVisible(false);
+            titledPane.setManaged(false);
+        }
+
+        // Section editability — disable all children if not editable
+        if (!section.isEditable() && !section.hasEditableCondition()) {
+            sectionContent.setDisable(true);
+        }
+
+        // Register @cond: bindings for section-level visibility/editability
+        widgetFactory.registerSectionConditions(section, titledPane, sectionContent);
+
         return titledPane;
     }
 

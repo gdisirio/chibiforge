@@ -22,7 +22,7 @@
   </provides>
 
   <sections>
-    <section name="Identification" expanded="true">
+    <section name="Identification" expanded="true" editable="true" visible="true">
       <description>Board info related settings.</description>
       <property name="board_identifier" type="string"
                 brief="An identifier for the board, a macro is generated prefixed with BOARD_."
@@ -33,7 +33,7 @@
                 required="true" editable="true" default="Generic STM32F4xx"/>
     </section>
 
-    <section name="Clock Settings" expanded="true">
+    <section name="Clock Settings" expanded="true" editable="true" visible="true">
       <description>Clock related settings.</description>
       <property name="vdd" type="int"
                 brief="MCU voltage in hundredths of Volt."
@@ -59,7 +59,7 @@
       </layout>
     </section>
 
-    <section name="PHY Settings" expanded="true">
+    <section name="PHY Settings" expanded="true" editable="true" visible="true">
       <description>Settings related to the Ethernet PHY.</description>
       <property name="address" type="enum"
                 brief="PHY Address or auto-scan mode."
@@ -75,14 +75,14 @@
                 enum_of="RMII,MII"/>
     </section>
 
-    <section name="I/O Settings" expanded="true">
+    <section name="I/O Settings" expanded="true" editable="true" visible="true">
       <description>I/O pins related settings. All undefined pins are initialized as input with pull-up resistor.</description>
       <property name="pins_list" type="list"
                 brief="Pin modes to be programmed when the HAL is initialized."
                 required="true" editable="true" default=""
                 list_columns="port:100,bit:60,identifiers:150,pin_mode:100">
         <sections>
-          <section name="Pin Identification" expanded="true">
+          <section name="Pin Identification" expanded="true" editable="true" visible="true">
             <description>Pin identification properties.</description>
             <property name="identifiers" type="string"
                       brief="Pin Identifiers, space-separated names for the pin."
@@ -97,7 +97,7 @@
                       required="true" editable="true" default="0"
                       enum_of="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15"/>
           </section>
-          <section name="Settings" expanded="true">
+          <section name="Settings" expanded="true" editable="true" visible="true">
             <description>Pin state and mode settings.</description>
             <property name="pin_mode" type="enum"
                       brief="Pin modes such as direction, pull-up/down resistors etc."
@@ -128,7 +128,7 @@
       </property>
     </section>
 
-    <section name="Initialization Code" expanded="false">
+    <section name="Initialization Code" expanded="false" editable="true" visible="true">
       <description>Code snippets to be executed at system initialization.</description>
       <property name="early_initialization_code" type="text"
                 brief="Code to be executed immediately after clock initialization and before C runtime initialization."

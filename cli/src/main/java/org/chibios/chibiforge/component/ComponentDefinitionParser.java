@@ -56,7 +56,6 @@ public class ComponentDefinitionParser {
         List<FeatureDef> requires = new ArrayList<>();
         List<FeatureDef> provides = new ArrayList<>();
         List<SectionDef> sections = new ArrayList<>();
-        List<ImageDef> images = new ArrayList<>();
 
         for (Element child : childElements(root)) {
             switch (child.getLocalName()) {
@@ -66,12 +65,11 @@ public class ComponentDefinitionParser {
                 case "requires" -> requires = parseFeatures(child);
                 case "provides" -> provides = parseFeatures(child);
                 case "sections" -> sections = parseSections(child);
-                case "image" -> images.add(parseImage(child));
             }
         }
 
         return new ComponentDefinition(id, name, version, hidden, isPlatform, description,
-                resources, categories, requires, provides, sections, images);
+                resources, categories, requires, provides, sections);
     }
 
     private List<ResourceDef> parseResources(Element resourcesEl) {
@@ -122,6 +120,8 @@ public class ComponentDefinitionParser {
     private SectionDef parseSection(Element sectionEl) {
         String name = requireAttr(sectionEl, "name");
         boolean expanded = "true".equals(requireAttr(sectionEl, "expanded"));
+        String editable = sectionEl.hasAttribute("editable") ? sectionEl.getAttribute("editable") : "true";
+        String visible = sectionEl.hasAttribute("visible") ? sectionEl.getAttribute("visible") : "true";
 
         String description = null;
         List<Object> children = new ArrayList<>();
@@ -135,7 +135,7 @@ public class ComponentDefinitionParser {
             }
         }
 
-        return new SectionDef(name, expanded, description, children);
+        return new SectionDef(name, expanded, editable, visible, description, children);
     }
 
     private PropertyDef parseProperty(Element propEl) {

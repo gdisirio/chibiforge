@@ -82,15 +82,6 @@ class ComponentDefinitionParserTest {
     }
 
     @Test
-    void componentLevelImage() {
-        assertThat(def.getImages()).hasSize(1);
-        ImageDef img = def.getImages().get(0);
-        assertThat(img.getFile()).isEqualTo("rsc/block_diagram.png");
-        assertThat(img.getAlign()).isEqualTo("center");
-        assertThat(img.getText()).isEqualTo("Block diagram of the peripheral");
-    }
-
-    @Test
     void sectionsCount() {
         assertThat(def.getSections()).hasSize(2);
     }

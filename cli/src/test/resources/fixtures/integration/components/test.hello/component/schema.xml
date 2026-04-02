@@ -24,7 +24,7 @@
   </provides>
 
   <sections>
-    <section name="settings" expanded="true">
+    <section name="settings" expanded="true" editable="true" visible="true">
       <description>Test settings.</description>
       <property name="greeting" type="string" brief="Greeting message"
                 required="true" editable="true" default="Hello"/>

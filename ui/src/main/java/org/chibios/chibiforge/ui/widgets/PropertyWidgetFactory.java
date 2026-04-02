@@ -141,6 +141,21 @@ public class PropertyWidgetFactory {
     }
 
     /**
+     * Register @cond: bindings for a section's visibility and editability.
+     */
+    public void registerSectionConditions(org.chibios.chibiforge.component.SectionDef section,
+                                           Node sectionPane, Node sectionContent) {
+        if (section.hasVisibleCondition()) {
+            conditionBindings.add(new ConditionBinding(
+                    section.getVisibleCondition(), sectionPane, ConditionBinding.Type.VISIBLE));
+        }
+        if (section.hasEditableCondition()) {
+            conditionBindings.add(new ConditionBinding(
+                    section.getEditableCondition(), sectionContent, ConditionBinding.Type.EDITABLE));
+        }
+    }
+
+    /**
      * Re-evaluate @cond: expressions.
      */
     public void reEvaluateConditions() {

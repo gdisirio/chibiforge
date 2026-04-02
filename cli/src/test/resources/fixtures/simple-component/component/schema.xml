@@ -29,12 +29,8 @@
     <feature id="features.hal.platform.stm32f4xx" exclusive="true"/>
   </provides>
 
-  <image file="rsc/block_diagram.png" align="center">
-    <text>Block diagram of the peripheral</text>
-  </image>
-
   <sections>
-    <section name="Initialization Settings" expanded="true">
+    <section name="Initialization Settings" expanded="true" editable="true" visible="true">
       <description>Core initialization parameters.</description>
       <property name="do_not_init" type="bool" brief="Skip initialization"
                 required="true" editable="true" default="false"/>
@@ -63,13 +59,13 @@
                 required="false" editable="true" default=""
                 text_maxsize="4096"/>
     </section>
-    <section name="Pin Settings" expanded="false">
+    <section name="Pin Settings" expanded="false" editable="true" visible="true">
       <description>GPIO pin configuration.</description>
       <property name="pins" type="list" brief="Pin configuration list"
                 required="false" editable="true" default=""
                 list_columns="name:150,mode:100,speed">
         <sections>
-          <section name="Pin Details" expanded="true">
+          <section name="Pin Details" expanded="true" editable="true" visible="true">
             <description>Individual pin settings.</description>
             <property name="name" type="string" brief="Pin name"
                       required="true" editable="true" default="PA0"/>

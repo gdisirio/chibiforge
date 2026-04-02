@@ -36,12 +36,11 @@ public class ComponentDefinition {
     private final List<FeatureDef> requires;
     private final List<FeatureDef> provides;
     private final List<SectionDef> sections;
-    private final List<ImageDef> images; // component-level images
 
     public ComponentDefinition(String id, String name, String version, boolean hidden, boolean isPlatform,
                                String description, List<ResourceDef> resources, List<String> categories,
                                List<FeatureDef> requires, List<FeatureDef> provides,
-                               List<SectionDef> sections, List<ImageDef> images) {
+                               List<SectionDef> sections) {
         this.id = id;
         this.name = name;
         this.version = version;
@@ -53,7 +52,6 @@ public class ComponentDefinition {
         this.requires = requires != null ? List.copyOf(requires) : List.of();
         this.provides = provides != null ? List.copyOf(provides) : List.of();
         this.sections = sections != null ? List.copyOf(sections) : List.of();
-        this.images = images != null ? List.copyOf(images) : List.of();
     }
 
     public String getId() { return id; }
@@ -67,7 +65,6 @@ public class ComponentDefinition {
     public List<FeatureDef> getRequires() { return requires; }
     public List<FeatureDef> getProvides() { return provides; }
     public List<SectionDef> getSections() { return sections; }
-    public List<ImageDef> getImages() { return images; }
 
     @Override
     public String toString() {

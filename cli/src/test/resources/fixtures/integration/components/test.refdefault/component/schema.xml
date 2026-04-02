@@ -18,7 +18,7 @@
   <provides/>
 
   <sections>
-    <section name="settings" expanded="true">
+    <section name="settings" expanded="true" editable="true" visible="true">
       <description>Settings with @ref: defaults.</description>
       <property name="max_channels" type="int" brief="Max ADC channels"
                 required="true" editable="false"
