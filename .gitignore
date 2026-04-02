@@ -12,7 +12,7 @@ bin/chibiforge.jar
 .settings/
 .vscode/
 *.swp
-CLAUDE.mp
+CLAUDE.md
 .claude
 .codex
 
