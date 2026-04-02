@@ -26,24 +26,58 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 /**
  * Dialog for managing build targets (add, rename, delete).
  * The "default" target cannot be renamed or deleted.
  */
-public class ManageTargetsDialog extends Dialog<List<String>> {
+public class ManageTargetsDialog extends Dialog<ManageTargetsDialog.Result> {
 
-    private final ObservableList<String> targets;
-    private final ListView<String> listView;
+    public record Result(List<String> targets, Map<String, String> renamedTargets, List<String> deletedTargets) {
+        public String remapTarget(String target) {
+            if (target == null || target.isBlank()) {
+                return "default";
+            }
+            if (deletedTargets.contains(target)) {
+                return "default";
+            }
+            return renamedTargets.getOrDefault(target, target);
+        }
+    }
+
+    private static final class TargetEntry {
+        private final String originalName;
+        private String currentName;
+
+        private TargetEntry(String originalName, String currentName) {
+            this.originalName = originalName;
+            this.currentName = currentName;
+        }
+
+        @Override
+        public String toString() {
+            return currentName;
+        }
+    }
+
+    private final ObservableList<TargetEntry> targets;
+    private final ListView<TargetEntry> listView;
+    private final List<String> originalTargets;
 
     public ManageTargetsDialog(List<String> currentTargets) {
         setTitle("Manage Targets");
         setHeaderText("Add, rename, or delete build targets.");
         setResizable(true);
 
-        targets = FXCollections.observableArrayList(currentTargets);
+        originalTargets = List.copyOf(currentTargets);
+        targets = FXCollections.observableArrayList();
+        for (String target : currentTargets) {
+            targets.add(new TargetEntry(target, target));
+        }
         listView = new ListView<>(targets);
         listView.setPrefHeight(200);
         listView.getSelectionModel().selectFirst();
@@ -59,35 +93,41 @@ public class ManageTargetsDialog extends Dialog<List<String>> {
             input.setContentText("Target name:");
             input.showAndWait().ifPresent(name -> {
                 String trimmed = name.trim();
-                if (!trimmed.isEmpty() && !targets.contains(trimmed)) {
-                    targets.add(trimmed);
+                if (!trimmed.isEmpty() && containsTarget(trimmed)) {
+                    return;
+                }
+                if (!trimmed.isEmpty()) {
+                    targets.add(new TargetEntry(null, trimmed));
                 }
             });
         });
 
         renameBtn.setOnAction(e -> {
-            String selected = listView.getSelectionModel().getSelectedItem();
-            if (selected == null || "default".equals(selected)) return;
+            TargetEntry selected = listView.getSelectionModel().getSelectedItem();
+            if (selected == null || "default".equals(selected.currentName)) return;
 
-            TextInputDialog input = new TextInputDialog(selected);
+            TextInputDialog input = new TextInputDialog(selected.currentName);
             input.setTitle("Rename Target");
             input.setHeaderText(null);
             input.setContentText("New name:");
             input.showAndWait().ifPresent(name -> {
                 String trimmed = name.trim();
-                if (!trimmed.isEmpty() && !targets.contains(trimmed)) {
-                    int idx = targets.indexOf(selected);
-                    targets.set(idx, trimmed);
+                if (!trimmed.isEmpty() && !trimmed.equals(selected.currentName) && containsTarget(trimmed)) {
+                    return;
+                }
+                if (!trimmed.isEmpty()) {
+                    selected.currentName = trimmed;
+                    listView.refresh();
                 }
             });
         });
 
         deleteBtn.setOnAction(e -> {
-            String selected = listView.getSelectionModel().getSelectedItem();
-            if (selected == null || "default".equals(selected)) return;
+            TargetEntry selected = listView.getSelectionModel().getSelectedItem();
+            if (selected == null || "default".equals(selected.currentName)) return;
 
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                    "Delete target '" + selected + "'?\nAll per-target overrides for this target will be discarded.",
+                    "Delete target '" + selected.currentName + "'?\nAll per-target overrides for this target will be discarded.",
                     ButtonType.OK, ButtonType.CANCEL);
             confirm.setHeaderText(null);
             confirm.showAndWait().ifPresent(btn -> {
@@ -99,7 +139,7 @@ public class ManageTargetsDialog extends Dialog<List<String>> {
 
         // Disable rename/delete for "default"
         listView.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
-            boolean isDefault = "default".equals(sel);
+            boolean isDefault = sel != null && "default".equals(sel.currentName);
             renameBtn.setDisable(isDefault || sel == null);
             deleteBtn.setDisable(isDefault || sel == null);
         });
@@ -116,6 +156,32 @@ public class ManageTargetsDialog extends Dialog<List<String>> {
         getDialogPane().setContent(content);
         getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
 
-        setResultConverter(btn -> btn == ButtonType.OK ? List.copyOf(targets) : null);
+        setResultConverter(btn -> btn == ButtonType.OK ? buildResult() : null);
+    }
+
+    private boolean containsTarget(String name) {
+        return targets.stream().anyMatch(entry -> entry.currentName.equals(name));
+    }
+
+    private Result buildResult() {
+        List<String> finalTargets = new ArrayList<>();
+        Map<String, String> renamedTargets = new LinkedHashMap<>();
+        List<String> deletedTargets = new ArrayList<>();
+
+        for (TargetEntry entry : targets) {
+            finalTargets.add(entry.currentName);
+            if (entry.originalName != null && !entry.originalName.equals(entry.currentName)) {
+                renamedTargets.put(entry.originalName, entry.currentName);
+            }
+        }
+
+        for (String originalTarget : originalTargets) {
+            boolean stillPresent = targets.stream().anyMatch(entry -> originalTarget.equals(entry.originalName));
+            if (!stillPresent) {
+                deletedTargets.add(originalTarget);
+            }
+        }
+
+        return new Result(List.copyOf(finalTargets), Map.copyOf(renamedTargets), List.copyOf(deletedTargets));
     }
 }

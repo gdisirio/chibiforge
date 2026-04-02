@@ -20,11 +20,13 @@ package org.chibios.chibiforge.ui;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.scene.input.KeyCode;
 import org.chibios.chibiforge.component.ComponentDefinition;
 import org.chibios.chibiforge.component.LayoutDef;
 import org.chibios.chibiforge.component.PropertyDef;
@@ -52,6 +54,7 @@ import org.chibios.chibiforge.generator.GenerationReport;
 import org.chibios.chibiforge.generator.GeneratorEngine;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -88,6 +91,18 @@ public class MainWindow {
     private final ToolBar toolBar;
     private final ComboBox<String> targetSelector;
     private final ToggleButton inspectorToggle;
+    private MenuItem newMenuItem;
+    private MenuItem closeMenuItem;
+    private MenuItem saveMenuItem;
+    private MenuItem saveAsMenuItem;
+    private MenuItem generateMenuItem;
+    private MenuItem cleanMenuItem;
+    private Button newToolButton;
+    private Button closeToolButton;
+    private Button saveToolButton;
+    private Button generateToolButton;
+    private Button cleanToolButton;
+    private Button manageTargetsButton;
 
     // Panels
     private final ComponentPalette palette;
@@ -204,9 +219,16 @@ public class MainWindow {
 
         // Escape key navigates up
         root.setOnKeyPressed(e -> {
-            if (e.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
+            if (e.getCode() == KeyCode.ESCAPE) {
                 breadcrumb.navigateUp();
                 e.consume();
+            } else if (e.getCode() == KeyCode.F5) {
+                runGenerate();
+                e.consume();
+            } else if (e.getCode() == KeyCode.DELETE) {
+                if (handleDeleteShortcut()) {
+                    e.consume();
+                }
             }
         });
 
@@ -221,6 +243,7 @@ public class MainWindow {
         model.configFileProperty().addListener((obs, old, path) -> updateWindowTitle());
         model.configurationProperty().addListener((obs, old, config) -> updateWindowTitle());
         model.configurationProperty().addListener((obs, old, config) -> updateStatusBar());
+        model.configurationProperty().addListener((obs, old, config) -> updateActionState());
         model.registryProperty().addListener((obs, old, registry) -> updateStatusBar());
         model.activeTargetProperty().addListener((obs, old, target) -> updateStatusBar());
         model.validationErrorCountProperty().addListener((obs, old, count) -> updateStatusBar());
@@ -237,6 +260,7 @@ public class MainWindow {
         showWelcomeScreen();
         updateWindowTitle();
         updateStatusBar();
+        updateActionState();
     }
 
     /**
@@ -281,6 +305,34 @@ public class MainWindow {
         if (confirmSafeToDiscardChanges("creating a new configuration")) {
             newConfiguration();
         }
+    }
+
+    private void requestCloseConfiguration() {
+        if (!confirmSafeToDiscardChanges("closing the current configuration")) {
+            return;
+        }
+        closeConfiguration();
+    }
+
+    private void closeConfiguration() {
+        lastViewedComponentId = null;
+        model.setConfiguration(null);
+        model.setConfigurationRootElement(null);
+        model.setRegistry(null);
+        model.setConfigFile(null);
+        model.setConfigRoot(null);
+        model.getTargets().setAll("default");
+        model.setActiveTarget("default");
+        model.getWarnings().clear();
+        model.getUnresolvedComponents().clear();
+        model.getResolvedComponentRoots().clear();
+        model.setValidationErrorCount(0);
+        model.setModified(false);
+        targetSelector.getItems().setAll("default");
+        targetSelector.getSelectionModel().select("default");
+        palette.refresh();
+        componentsView.refresh();
+        showWelcomeScreen();
     }
 
     private void applyConfiguration(ChibiForgeConfiguration config, Element rootElement, Path configFile) throws Exception {
@@ -984,18 +1036,41 @@ public class MainWindow {
 
     private void showManageTargetsDialog() {
         ManageTargetsDialog dialog = new ManageTargetsDialog(model.getTargets());
-        dialog.showAndWait().ifPresent(newTargets -> {
-            String previousTarget = model.getActiveTarget();
-            model.getTargets().setAll(newTargets);
-            targetSelector.getItems().setAll(newTargets);
-            if (newTargets.contains(previousTarget)) {
-                targetSelector.getSelectionModel().select(previousTarget);
-            } else {
-                targetSelector.getSelectionModel().select("default");
-                model.setActiveTarget("default");
+        dialog.showAndWait().ifPresent(result -> {
+            try {
+                applyTargetChanges(result);
+            } catch (Exception e) {
+                Alert alert = new Alert(Alert.AlertType.ERROR,
+                        "Failed to update targets:\n" + e.getMessage(), ButtonType.OK);
+                alert.showAndWait();
             }
-            model.setModified(true);
         });
+    }
+
+    private void applyTargetChanges(ManageTargetsDialog.Result result) throws Exception {
+        if (model.getConfigurationRootElement() == null) {
+            return;
+        }
+
+        String remappedActiveTarget = result.remapTarget(model.getActiveTarget());
+        rewriteTargetsElement(result.targets());
+        rewriteTargetOverrides(model.getConfigurationRootElement(), result.renamedTargets(), Set.copyOf(result.deletedTargets()));
+        normalizeMultiTargetProperties(model.getConfigurationRootElement());
+        refreshConfigurationFromDocument();
+
+        if (!model.getTargets().contains(remappedActiveTarget)) {
+            remappedActiveTarget = "default";
+        }
+        model.setActiveTarget(remappedActiveTarget);
+        targetSelector.getSelectionModel().select(remappedActiveTarget);
+        configForm.refreshForTarget(remappedActiveTarget);
+        model.setModified(true);
+
+        if (centerPanel.getChildren().contains(configForm.getRoot()) && lastViewedComponentId != null) {
+            showConfigurationForm(lastViewedComponentId);
+        } else if (model.getConfiguration() != null) {
+            showComponentsView();
+        }
     }
 
     private void openConfigurationDialog() {
@@ -1181,29 +1256,32 @@ public class MainWindow {
 
     private MenuBar createMenuBar() {
         Menu fileMenu = new Menu("_File");
-        MenuItem newItem = new MenuItem("New");
-        newItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+N"));
-        newItem.setOnAction(e -> requestNewConfiguration());
+        newMenuItem = new MenuItem("New");
+        newMenuItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+N"));
+        newMenuItem.setOnAction(e -> requestNewConfiguration());
 
         MenuItem openItem = new MenuItem("Open...");
         openItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+O"));
         openItem.setOnAction(e -> openConfigurationDialog());
-        MenuItem saveItem = new MenuItem("Save");
-        saveItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+S"));
-        saveItem.setOnAction(e -> saveConfiguration());
-        MenuItem saveAsItem = new MenuItem("Save As...");
-        saveAsItem.setOnAction(e -> saveConfigurationAs());
+        closeMenuItem = new MenuItem("Close");
+        closeMenuItem.setOnAction(e -> requestCloseConfiguration());
+        saveMenuItem = new MenuItem("Save");
+        saveMenuItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+S"));
+        saveMenuItem.setOnAction(e -> saveConfiguration());
+        saveAsMenuItem = new MenuItem("Save As...");
+        saveAsMenuItem.setOnAction(e -> saveConfigurationAs());
 
         MenuItem exitItem = new MenuItem("Exit");
         exitItem.setOnAction(e -> stage.close());
 
         fileMenu.getItems().addAll(
-                newItem,
+                newMenuItem,
                 openItem,
+                closeMenuItem,
                 recentFilesMenu,
                 new SeparatorMenuItem(),
-                saveItem,
-                saveAsItem,
+                saveMenuItem,
+                saveAsMenuItem,
                 new SeparatorMenuItem(),
                 exitItem
         );
@@ -1222,14 +1300,14 @@ public class MainWindow {
                 new MenuItem("Remove Component")
         );
 
-        MenuItem generateItem = new MenuItem("Generate");
-        generateItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+G"));
-        generateItem.setOnAction(e -> runGenerate());
-        MenuItem cleanItem = new MenuItem("Clean");
-        cleanItem.setOnAction(e -> runClean());
+        generateMenuItem = new MenuItem("Generate");
+        generateMenuItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+G"));
+        generateMenuItem.setOnAction(e -> runGenerate());
+        cleanMenuItem = new MenuItem("Clean");
+        cleanMenuItem.setOnAction(e -> runClean());
 
         Menu generateMenu = new Menu("_Generate");
-        generateMenu.getItems().addAll(generateItem, cleanItem);
+        generateMenu.getItems().addAll(generateMenuItem, cleanMenuItem);
 
         Menu helpMenu = new Menu("_Help");
         helpMenu.getItems().addAll(
@@ -1240,34 +1318,170 @@ public class MainWindow {
         return new MenuBar(fileMenu, editMenu, componentsMenu, generateMenu, helpMenu);
     }
 
+    private boolean handleDeleteShortcut() {
+        if (centerPanel.getChildren().contains(componentsView.getRoot()) && componentsView.hasSelection()) {
+            componentsView.requestRemoveSelected();
+            return true;
+        }
+        return false;
+    }
+
+    private Element findOrCreateTargetsElement() {
+        Element rootElement = model.getConfigurationRootElement();
+        if (rootElement == null) {
+            throw new IllegalStateException("No configuration document loaded");
+        }
+        NodeList children = rootElement.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            if (children.item(i) instanceof Element child && "targets".equals(localName(child))) {
+                return child;
+            }
+        }
+        Element targetsElement = rootElement.getOwnerDocument().createElementNS(CONFIG_NS, "targets");
+        rootElement.insertBefore(targetsElement, findOrCreateComponentsElement());
+        return targetsElement;
+    }
+
+    private void rewriteTargetsElement(List<String> targets) {
+        Element targetsElement = findOrCreateTargetsElement();
+        while (targetsElement.hasChildNodes()) {
+            targetsElement.removeChild(targetsElement.getFirstChild());
+        }
+        Document doc = targetsElement.getOwnerDocument();
+        String namespace = targetsElement.getNamespaceURI() != null ? targetsElement.getNamespaceURI() : CONFIG_NS;
+        for (String target : targets) {
+            Element targetElement = doc.createElementNS(namespace, "target");
+            targetElement.setAttribute("id", target);
+            targetsElement.appendChild(targetElement);
+        }
+    }
+
+    private void rewriteTargetOverrides(Element root, Map<String, String> renamedTargets, Set<String> deletedTargets) {
+        NodeList allElements = root.getElementsByTagName("*");
+        List<Element> targetValueElements = new ArrayList<>();
+        for (int i = 0; i < allElements.getLength(); i++) {
+            if (allElements.item(i) instanceof Element element && "targetValue".equals(localName(element))) {
+                targetValueElements.add(element);
+            }
+        }
+
+        for (Element targetValueElement : targetValueElements) {
+            String target = targetValueElement.getAttribute("target");
+            if (deletedTargets.contains(target)) {
+                targetValueElement.getParentNode().removeChild(targetValueElement);
+                continue;
+            }
+            String renamed = renamedTargets.get(target);
+            if (renamed != null) {
+                targetValueElement.setAttribute("target", renamed);
+            }
+        }
+    }
+
+    private void normalizeMultiTargetProperties(Element root) {
+        NodeList allElements = root.getElementsByTagName("*");
+        List<Element> multiTargetProperties = new ArrayList<>();
+        for (int i = 0; i < allElements.getLength(); i++) {
+            if (allElements.item(i) instanceof Element element
+                    && element.hasAttribute("default")
+                    && !"targetValue".equals(localName(element))) {
+                multiTargetProperties.add(element);
+            }
+        }
+
+        for (Element propertyElement : multiTargetProperties) {
+            boolean hasTargetValues = false;
+            NodeList children = propertyElement.getChildNodes();
+            for (int i = 0; i < children.getLength(); i++) {
+                if (children.item(i) instanceof Element child && "targetValue".equals(localName(child))) {
+                    hasTargetValues = true;
+                    break;
+                }
+            }
+            if (!hasTargetValues) {
+                org.chibios.chibiforge.ui.widgets.MultiTargetHelper.demoteToSingleTarget(propertyElement);
+            }
+        }
+    }
+
+    private String localName(Element element) {
+        return element.getLocalName() != null ? element.getLocalName() : element.getTagName();
+    }
+
     private ToolBar createToolBar() {
-        Button newBtn = new Button("New");
-        newBtn.setOnAction(e -> requestNewConfiguration());
-        Button saveBtn = new Button("Save");
-        saveBtn.setOnAction(e -> saveConfiguration());
+        newToolButton = new Button("New");
+        newToolButton.setOnAction(e -> requestNewConfiguration());
+        closeToolButton = new Button("Close");
+        closeToolButton.setOnAction(e -> requestCloseConfiguration());
+        saveToolButton = new Button("Save");
+        saveToolButton.setOnAction(e -> saveConfiguration());
         Separator sep1 = new Separator();
-        Button generateBtn = new Button("Generate");
-        generateBtn.getStyleClass().add("accent-button");
-        generateBtn.setOnAction(e -> runGenerate());
-        Button cleanBtn = new Button("Clean");
-        cleanBtn.setOnAction(e -> runClean());
+        generateToolButton = new Button("Generate");
+        generateToolButton.getStyleClass().add("accent-button");
+        generateToolButton.setOnAction(e -> runGenerate());
+        cleanToolButton = new Button("Clean");
+        cleanToolButton.setOnAction(e -> runClean());
         Label targetLabel = new Label("Target:");
 
-        Button manageTargetsBtn = new Button("\u2699");
-        manageTargetsBtn.setTooltip(new Tooltip("Manage Targets..."));
-        manageTargetsBtn.setOnAction(e -> showManageTargetsDialog());
+        manageTargetsButton = new Button("\u2699");
+        manageTargetsButton.setTooltip(new Tooltip("Manage Targets..."));
+        manageTargetsButton.setOnAction(e -> showManageTargetsDialog());
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         return new ToolBar(
-                newBtn, saveBtn, sep1,
-                generateBtn, cleanBtn,
+                newToolButton, closeToolButton, saveToolButton, sep1,
+                generateToolButton, cleanToolButton,
                 new Separator(),
-                targetLabel, targetSelector, manageTargetsBtn,
+                targetLabel, targetSelector, manageTargetsButton,
                 spacer,
                 inspectorToggle
         );
+    }
+
+    private void updateActionState() {
+        boolean hasConfiguration = model.getConfiguration() != null;
+
+        if (newMenuItem != null) {
+            newMenuItem.setDisable(!hasConfiguration);
+        }
+        if (saveMenuItem != null) {
+            saveMenuItem.setDisable(!hasConfiguration);
+        }
+        if (closeMenuItem != null) {
+            closeMenuItem.setDisable(!hasConfiguration);
+        }
+        if (saveAsMenuItem != null) {
+            saveAsMenuItem.setDisable(!hasConfiguration);
+        }
+        if (generateMenuItem != null) {
+            generateMenuItem.setDisable(!hasConfiguration);
+        }
+        if (cleanMenuItem != null) {
+            cleanMenuItem.setDisable(!hasConfiguration);
+        }
+        if (newToolButton != null) {
+            newToolButton.setDisable(!hasConfiguration);
+        }
+        if (saveToolButton != null) {
+            saveToolButton.setDisable(!hasConfiguration);
+        }
+        if (closeToolButton != null) {
+            closeToolButton.setDisable(!hasConfiguration);
+        }
+        if (generateToolButton != null) {
+            generateToolButton.setDisable(!hasConfiguration);
+        }
+        if (cleanToolButton != null) {
+            cleanToolButton.setDisable(!hasConfiguration);
+        }
+        if (manageTargetsButton != null) {
+            manageTargetsButton.setDisable(!hasConfiguration);
+        }
+        if (targetSelector != null) {
+            targetSelector.setDisable(!hasConfiguration);
+        }
     }
 
     private HBox createStatusBar() {

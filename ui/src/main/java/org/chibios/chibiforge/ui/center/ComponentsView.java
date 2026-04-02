@@ -223,6 +223,14 @@ public class ComponentsView {
         }
     }
 
+    public boolean hasSelection() {
+        return selectedComponentId != null;
+    }
+
+    public void requestRemoveSelected() {
+        removeSelectedComponent();
+    }
+
     public String getSelectedComponentId() { return selectedComponentId; }
     public VBox getRoot() { return root; }
 }

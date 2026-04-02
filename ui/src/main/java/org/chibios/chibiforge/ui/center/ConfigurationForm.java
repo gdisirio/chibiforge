@@ -353,6 +353,13 @@ public class ConfigurationForm {
             }
         });
 
+        table.setOnKeyPressed(e -> {
+            if (e.getCode() == javafx.scene.input.KeyCode.DELETE) {
+                removeBtn.fire();
+                e.consume();
+            }
+        });
+
         duplicateBtn.setOnAction(e -> {
             Element selected = table.getSelectionModel().getSelectedItem();
             if (selected != null) {
