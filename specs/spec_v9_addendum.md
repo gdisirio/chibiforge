@@ -56,5 +56,14 @@ Shows a simple file listing of the configuration root directory tree. No cross-r
 ### `text` property type and CDATA serialization
 The `text` property type is used for code snippets (C initialization code, etc.) that may contain XML-special characters (`<`, `>`, `&`). The spec does not address how these values are serialized in `chibiforge.xcfg`. The implementation should use CDATA sections (`<![CDATA[...]]>`) when writing `text` property values to avoid XML escaping that would mangle source code. The DOM parser reads CDATA transparently, so this only affects the writer (`XcfgWriter`). This requires the writer to know which properties are `text` type, which means consulting the component schema during save — or alternatively, always using CDATA for any element whose text content contains `<`, `>`, or `&`.
 
+### `visible` and `editable` attributes on `<section>` elements
+Currently `visible` and `editable` (with `@cond:` support) are only defined on `<property>` elements. Extending these to `<section>` elements would allow entire sections to be conditionally shown/hidden or made read-only based on other property values. Proposed behavior:
+- `visible="true"` (default if absent): section always shown. `visible="false"`: section always hidden. `visible="@cond:xpath"`: section shown/hidden dynamically.
+- `editable="true"` (default if absent): section content editable. `editable="false"`: all child widgets disabled. `editable="@cond:xpath"`: editability toggled dynamically.
+- A hidden section hides the entire collapsible block (TitledPane). The DOM values are retained — hiding is GUI-only.
+- A non-editable section disables all child property widgets recursively (properties within layouts and nested sections).
+- The XSD `sectionType` needs optional `visible` and `editable` attributes with unrestricted string type (same as `propertyType`).
+- Backward compatible: absent attributes default to `"true"`.
+
 ### Component source paths in the UI
 The UI currently receives component and plugin paths via CLI arguments (`--components`, `--plugins`). There is no Preferences dialog to set or change these paths from within the UI. A future enhancement should allow the user to configure component sources in Preferences, persisted across sessions. The spec should define where these preferences are stored (e.g., a user-level config file, OS-specific preferences directory).

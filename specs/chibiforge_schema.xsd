@@ -12,17 +12,10 @@
         <element name="requires" type="tns:requiresType" maxOccurs="1"
           minOccurs="1">
         </element>
-        <element name="provides" type="tns:providesType" maxOccurs="1"
-          minOccurs="1">
+            <element name="provides" type="tns:providesType" maxOccurs="1" minOccurs="1">
         </element>
-        <choice maxOccurs="unbounded" minOccurs="0">
-          <element name="image" type="tns:imageType" maxOccurs="1"
-            minOccurs="0">
+            <element name="sections" type="tns:sectionsType" maxOccurs="1" minOccurs="0">
           </element>
-          <element name="sections" type="tns:sectionsType" maxOccurs="1"
-            minOccurs="0">
-          </element>
-        </choice>
       </sequence>
       <attribute name="name" type="string" use="required"></attribute>
       <attribute name="id" type="string" use="required"></attribute>
@@ -35,7 +28,14 @@
           </restriction>
         </simpleType>
       </attribute>
-      <attribute name="is_platform" type="string" use="required"></attribute>
+        <attribute name="is_platform" use="required">
+          <simpleType>
+            <restriction base="string">
+              <enumeration value="false"></enumeration>
+              <enumeration value="true"></enumeration>
+            </restriction>
+          </simpleType>
+        </attribute>
     </complexType>
 
     <complexType name="imageType">
@@ -81,6 +81,20 @@
           <restriction base="string">
             <enumeration value="false"></enumeration>
             <enumeration value="true"></enumeration>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="editable" use="required">
+        <simpleType>
+          <restriction base="string">
+            <minLength value="1"></minLength>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="visible" use="required">
+        <simpleType>
+          <restriction base="string">
+            <minLength value="1"></minLength>
           </restriction>
         </simpleType>
       </attribute>
