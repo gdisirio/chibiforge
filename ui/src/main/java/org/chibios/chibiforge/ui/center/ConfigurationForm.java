@@ -18,6 +18,7 @@
 
 package org.chibios.chibiforge.ui.center;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -39,6 +40,8 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -53,6 +56,7 @@ public class ConfigurationForm {
     private final ScrollPane scrollPane;
     private final VBox formContent;
     private final PropertyWidgetFactory widgetFactory;
+    private final Map<String, Node> outlineAnchors = new HashMap<>();
     private ComponentContent componentContent;
 
     // Callback for list drill-down navigation
@@ -90,6 +94,7 @@ public class ConfigurationForm {
                               ComponentContainer container) {
         formContent.getChildren().clear();
         widgetFactory.clearBindings();
+        outlineAnchors.clear();
         model.setValidationErrorCount(0);
         this.componentContent = container.getComponentContent();
 
@@ -126,6 +131,7 @@ public class ConfigurationForm {
     public void loadListItem(PropertyDef listProp, Element itemElement) {
         formContent.getChildren().clear();
         widgetFactory.clearBindings();
+        outlineAnchors.clear();
         model.setValidationErrorCount(0);
 
         for (SectionDef section : listProp.getNestedSections()) {
@@ -140,6 +146,7 @@ public class ConfigurationForm {
     public void clearView() {
         formContent.getChildren().clear();
         widgetFactory.clearBindings();
+        outlineAnchors.clear();
         model.setValidationErrorCount(0);
     }
 
@@ -162,11 +169,13 @@ public class ConfigurationForm {
         for (Object child : section.getChildren()) {
             if (child instanceof PropertyDef prop) {
                 if (prop.getType() == PropertyDef.Type.LIST) {
-                    sectionContent.getChildren().add(
-                            createListWidget(prop, sectionElement));
+                    Node listWidget = createListWidget(prop, sectionElement);
+                    sectionContent.getChildren().add(listWidget);
+                    outlineAnchors.putIfAbsent(prop.getName(), listWidget);
                 } else {
-                    sectionContent.getChildren().add(
-                            widgetFactory.createPropertyRow(prop, sectionElement));
+                    Node propertyRow = widgetFactory.createPropertyRow(prop, sectionElement);
+                    sectionContent.getChildren().add(propertyRow);
+                    outlineAnchors.putIfAbsent(prop.getName(), propertyRow);
                 }
             } else if (child instanceof LayoutDef layout) {
                 sectionContent.getChildren().add(
@@ -194,6 +203,7 @@ public class ConfigurationForm {
 
         // Register @cond: bindings for section-level visibility/editability
         widgetFactory.registerSectionConditions(section, titledPane, sectionContent);
+        outlineAnchors.putIfAbsent(section.getName(), titledPane);
 
         return titledPane;
     }
@@ -218,6 +228,7 @@ public class ConfigurationForm {
             Node node = null;
             if (child instanceof PropertyDef prop) {
                 node = widgetFactory.createPropertyRow(prop, sectionElement);
+                outlineAnchors.putIfAbsent(prop.getName(), node);
             } else if (child instanceof ImageDef image) {
                 node = renderImage(image);
             } else if (child instanceof LayoutDef.EmptySlot) {
@@ -481,6 +492,49 @@ public class ConfigurationForm {
      */
     public void refreshForTarget(String target) {
         widgetFactory.refreshForTarget(target);
+    }
+
+    public void scrollToAnchor(String name) {
+        Node anchor = outlineAnchors.get(name);
+        if (anchor == null) {
+            return;
+        }
+        expandEnclosingSections(anchor);
+        Platform.runLater(() -> {
+            expandEnclosingSections(anchor);
+            scrollToNode(anchor);
+            Platform.runLater(() -> scrollToNode(anchor));
+        });
+    }
+
+    private void expandEnclosingSections(Node node) {
+        for (Node current = node; current != null; current = current.getParent()) {
+            if (current instanceof TitledPane titledPane) {
+                titledPane.setExpanded(true);
+            }
+        }
+    }
+
+    private void scrollToNode(Node anchor) {
+        if (anchor.getScene() == null) {
+            return;
+        }
+        scrollPane.applyCss();
+        scrollPane.layout();
+        formContent.applyCss();
+        formContent.layout();
+
+        double contentHeight = formContent.getBoundsInLocal().getHeight();
+        double viewportHeight = scrollPane.getViewportBounds().getHeight();
+        if (contentHeight <= viewportHeight || viewportHeight <= 0) {
+            anchor.requestFocus();
+            return;
+        }
+
+        double y = formContent.sceneToLocal(anchor.localToScene(anchor.getBoundsInLocal())).getMinY();
+        double targetVvalue = y / (contentHeight - viewportHeight);
+        scrollPane.setVvalue(Math.max(0.0, Math.min(1.0, targetVvalue)));
+        anchor.requestFocus();
     }
 
     public VBox getRoot() { return root; }

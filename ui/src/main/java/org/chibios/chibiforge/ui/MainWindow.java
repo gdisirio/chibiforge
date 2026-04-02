@@ -163,6 +163,7 @@ public class MainWindow {
 
         // Components view
         componentsView = new ComponentsView(model);
+        componentsView.setOnComponentSelected(this::handleConfiguredComponentSelection);
         componentsView.setOnComponentDoubleClick(compId -> showConfigurationForm(compId));
         componentsView.setOnAddSelected(() -> addSelectedComponent());
         componentsView.setOnRemoveSelected(this::removeConfiguredComponent);
@@ -175,6 +176,7 @@ public class MainWindow {
 
         // Right panel — inspector
         inspector = new InspectorPanel(model);
+        inspector.setOnOutlineSelect(this::handleOutlineSelection);
 
         // Status bar
         statusLeft = new Label("No configuration loaded");
@@ -577,6 +579,83 @@ public class MainWindow {
         } catch (Exception ignored) {
             inspector.showConfigurationHelp();
         }
+    }
+
+    private void handleConfiguredComponentSelection(String componentId) {
+        if (componentId == null || model.getRegistry() == null) {
+            inspector.showConfigurationHelp();
+            return;
+        }
+        try {
+            ComponentDefinition def = model.getRegistry().lookup(componentId).loadDefinition();
+            inspector.showComponentHelp(def);
+        } catch (Exception ignored) {
+            inspector.showConfigurationHelp();
+        }
+    }
+
+    private void handleOutlineSelection(String target) {
+        if (target == null || target.isBlank()) {
+            return;
+        }
+        if (target.startsWith("component:")) {
+            showConfigurationForm(target.substring("component:".length()));
+            return;
+        }
+        if (lastViewedComponentId == null || model.getRegistry() == null) {
+            return;
+        }
+        try {
+            ComponentDefinition def = model.getRegistry().lookup(lastViewedComponentId).loadDefinition();
+            if (target.startsWith("section:")) {
+                String sectionName = target.substring("section:".length());
+                SectionDef section = findSection(def.getSections(), sectionName);
+                if (section != null) {
+                    configForm.scrollToAnchor(sectionName);
+                    inspector.showSectionHelp(section);
+                }
+            } else if (target.startsWith("property:")) {
+                String propertyName = target.substring("property:".length());
+                PropertyDef property = findProperty(def.getSections(), propertyName);
+                if (property != null) {
+                    configForm.scrollToAnchor(propertyName);
+                    inspector.showPropertyHelp(property);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private SectionDef findSection(List<SectionDef> sections, String name) {
+        for (SectionDef section : sections) {
+            if (section.getName().equals(name)) {
+                return section;
+            }
+        }
+        return null;
+    }
+
+    private PropertyDef findProperty(List<SectionDef> sections, String name) {
+        for (SectionDef section : sections) {
+            for (Object child : section.getChildren()) {
+                if (child instanceof PropertyDef prop) {
+                    if (prop.getName().equals(name)) {
+                        return prop;
+                    }
+                    PropertyDef nested = findProperty(prop.getNestedSections(), name);
+                    if (nested != null) {
+                        return nested;
+                    }
+                } else if (child instanceof LayoutDef layout) {
+                    for (Object layoutChild : layout.getChildren()) {
+                        if (layoutChild instanceof PropertyDef prop && prop.getName().equals(name)) {
+                            return prop;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     private Element findOrCreateComponentsElement() {

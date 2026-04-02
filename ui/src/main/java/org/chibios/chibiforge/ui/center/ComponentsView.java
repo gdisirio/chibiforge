@@ -43,8 +43,10 @@ public class ComponentsView {
     private final FlowPane cardPane;
     private final Label countLabel;
     private final Label hintLabel;
+    private final Button removeBtn;
 
     private String selectedComponentId;
+    private Consumer<String> onComponentSelected;
     private Consumer<String> onComponentDoubleClick;
     private Runnable onAddSelected;
     private Consumer<String> onRemoveSelected;
@@ -57,7 +59,8 @@ public class ComponentsView {
         addBtn.setOnAction(e -> {
             if (onAddSelected != null) onAddSelected.run();
         });
-        Button removeBtn = new Button("Remove");
+        removeBtn = new Button("Remove");
+        removeBtn.setDisable(true);
         removeBtn.setOnAction(e -> removeSelectedComponent());
         countLabel = new Label("0 components configured");
 
@@ -98,6 +101,13 @@ public class ComponentsView {
     }
 
     /**
+     * Set callback for selecting a component card.
+     */
+    public void setOnComponentSelected(Consumer<String> handler) {
+        this.onComponentSelected = handler;
+    }
+
+    /**
      * Set callback for "Add Selected" button.
      */
     public void setOnAddSelected(Runnable handler) {
@@ -117,6 +127,10 @@ public class ComponentsView {
     public void refresh() {
         cardPane.getChildren().clear();
         selectedComponentId = null;
+        removeBtn.setDisable(true);
+        if (onComponentSelected != null) {
+            onComponentSelected.accept(null);
+        }
 
         if (model.getConfiguration() == null || model.getRegistry() == null) {
             countLabel.setText("0 components configured");
@@ -175,6 +189,10 @@ public class ComponentsView {
             cardPane.getChildren().forEach(n -> n.getStyleClass().remove("card-selected"));
             card.getStyleClass().add("card-selected");
             selectedComponentId = compId;
+            removeBtn.setDisable(false);
+            if (onComponentSelected != null) {
+                onComponentSelected.accept(compId);
+            }
 
             if (e.getClickCount() == 2 && onComponentDoubleClick != null) {
                 onComponentDoubleClick.accept(compId);

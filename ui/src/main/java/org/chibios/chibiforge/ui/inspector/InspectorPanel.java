@@ -22,6 +22,7 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+import org.chibios.chibiforge.component.LayoutDef;
 import org.chibios.chibiforge.component.ComponentDefinition;
 import org.chibios.chibiforge.component.PropertyDef;
 import org.chibios.chibiforge.component.SectionDef;
@@ -33,6 +34,8 @@ import org.chibios.chibiforge.ui.model.AppModel;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -48,6 +51,7 @@ public class InspectorPanel {
     // Outline tab
     private final TreeView<String> outlineTree;
     private Consumer<String> onOutlineSelect;
+    private final Map<TreeItem<String>, String> outlineTargets = new HashMap<>();
 
     // Help tab
     private final VBox helpContent;
@@ -65,6 +69,14 @@ public class InspectorPanel {
         outlineTree = new TreeView<>();
         outlineTree.setShowRoot(false);
         outlineTree.setRoot(new TreeItem<>("Root"));
+        outlineTree.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
+            if (selected != null && onOutlineSelect != null) {
+                String target = outlineTargets.get(selected);
+                if (target != null) {
+                    onOutlineSelect.accept(target);
+                }
+            }
+        });
         Tab outlineTab = new Tab("Outline", outlineTree);
 
         // Help tab
@@ -113,6 +125,7 @@ public class InspectorPanel {
     public void showComponentsOutline() {
         TreeItem<String> treeRoot = new TreeItem<>("Components");
         treeRoot.setExpanded(true);
+        outlineTargets.clear();
 
         if (model.getConfiguration() != null && model.getRegistry() != null) {
             for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
@@ -121,7 +134,9 @@ public class InspectorPanel {
                     ComponentContainer container = model.getRegistry().lookup(entry.getComponentId());
                     name = container.loadDefinition().getName();
                 } catch (Exception ignored) {}
-                treeRoot.getChildren().add(new TreeItem<>(name));
+                TreeItem<String> item = new TreeItem<>(name);
+                treeRoot.getChildren().add(item);
+                outlineTargets.put(item, "component:" + entry.getComponentId());
             }
         }
 
@@ -134,10 +149,12 @@ public class InspectorPanel {
     public void showComponentOutline(ComponentDefinition def) {
         TreeItem<String> treeRoot = new TreeItem<>(def.getName());
         treeRoot.setExpanded(true);
+        outlineTargets.clear();
 
         for (SectionDef section : def.getSections()) {
             TreeItem<String> sectionItem = new TreeItem<>(section.getName());
-            sectionItem.setExpanded(section.isExpanded());
+            sectionItem.setExpanded(true);
+            outlineTargets.put(sectionItem, "section:" + section.getName());
 
             for (Object child : section.getChildren()) {
                 if (child instanceof PropertyDef prop) {
@@ -145,13 +162,17 @@ public class InspectorPanel {
                     if (prop.getType() == PropertyDef.Type.LIST) {
                         label += " [list]";
                     }
-                    sectionItem.getChildren().add(new TreeItem<>(label));
-                } else if (child instanceof org.chibios.chibiforge.component.LayoutDef layout) {
+                    TreeItem<String> propertyItem = new TreeItem<>(label);
+                    sectionItem.getChildren().add(propertyItem);
+                    outlineTargets.put(propertyItem, "property:" + prop.getName());
+                } else if (child instanceof LayoutDef layout) {
                     TreeItem<String> layoutItem = new TreeItem<>("(layout " + layout.getColumns() + " cols)");
                     layoutItem.setExpanded(true);
                     for (Object lc : layout.getChildren()) {
                         if (lc instanceof PropertyDef prop) {
-                            layoutItem.getChildren().add(new TreeItem<>(prop.getName()));
+                            TreeItem<String> propertyItem = new TreeItem<>(prop.getName());
+                            layoutItem.getChildren().add(propertyItem);
+                            outlineTargets.put(propertyItem, "property:" + prop.getName());
                         }
                     }
                     sectionItem.getChildren().add(layoutItem);
@@ -255,6 +276,20 @@ public class InspectorPanel {
         }
     }
 
+    public void showSectionHelp(SectionDef section) {
+        helpContent.getChildren().clear();
+
+        addHelpHeader(section.getName());
+        if (section.getDescription() != null && !section.getDescription().isBlank()) {
+            addHelpLine(section.getDescription());
+        }
+        addHelpHeader("Resolved State");
+        addHelpLine("Expanded: " + section.isExpanded());
+        addHelpLine("Editable: " + section.getEditable());
+        addHelpLine("Visible: " + section.getVisible());
+        addHelpLine("Children: " + section.getChildren().size());
+    }
+
     /**
      * Show help for a specific property.
      */
@@ -309,23 +344,43 @@ public class InspectorPanel {
             return;
         }
 
-        TreeItem<String> treeRoot = new TreeItem<>(configRoot.getFileName().toString());
+        TreeItem<String> treeRoot = new TreeItem<>(configRoot.getFileName().toString() + " [project]");
         treeRoot.setExpanded(true);
-        buildFileTree(configRoot, treeRoot);
+        buildFileTree(configRoot, configRoot, treeRoot);
         filesTree.setRoot(treeRoot);
     }
 
-    private void buildFileTree(Path dir, TreeItem<String> parentItem) {
+    private void buildFileTree(Path projectRoot, Path dir, TreeItem<String> parentItem) {
         try (Stream<Path> entries = Files.list(dir).sorted()) {
             entries.forEach(path -> {
-                String name = path.getFileName().toString();
+                String name = path.getFileName().toString() + " [" + classifyPath(projectRoot, path) + "]";
                 TreeItem<String> item = new TreeItem<>(name);
                 parentItem.getChildren().add(item);
                 if (Files.isDirectory(path)) {
-                    buildFileTree(path, item);
+                    buildFileTree(projectRoot, path, item);
                 }
             });
         } catch (IOException ignored) {}
+    }
+
+    private String classifyPath(Path projectRoot, Path path) {
+        Path normalizedProjectRoot = projectRoot.toAbsolutePath().normalize();
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        Path relative;
+        try {
+            relative = normalizedProjectRoot.relativize(normalizedPath);
+        } catch (Exception ignored) {
+            return Files.isDirectory(path) ? "dir" : "file";
+        }
+
+        String rel = relative.toString().replace('\\', '/');
+        if (rel.equals("generated") || rel.startsWith("generated/")) {
+            return "generated";
+        }
+        if (rel.equals("chibiforge.xcfg") || rel.endsWith(".xcfg") || rel.equals("chibiforge_sources.json")) {
+            return "managed";
+        }
+        return Files.isDirectory(path) ? "dir" : "user";
     }
 
     // --- Log Tab ---
@@ -335,6 +390,7 @@ public class InspectorPanel {
      */
     public void appendLog(String text) {
         logArea.appendText(text + "\n");
+        logArea.positionCaret(logArea.getLength());
     }
 
     /**
