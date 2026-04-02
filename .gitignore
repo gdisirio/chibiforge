@@ -3,6 +3,7 @@ target/
 
 # Build output
 bin/*.jar
+bin/.cache/
 !bin/chibiforge
 !bin/chibiforge-ui
 

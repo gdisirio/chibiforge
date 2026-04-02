@@ -19,7 +19,9 @@
 package org.chibios.chibiforge.config;
 
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.Document;
 
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.InputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -81,6 +83,40 @@ class ConfigLoaderTest {
         assertThatThrownBy(() -> resolver.resolve(config, "nonexistent"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("nonexistent");
+    }
+
+    @Test
+    void loadDocumentPreservesRootElementAndSupportsEmptyConfigs() throws Exception {
+        Document doc = DocumentBuilderFactory.newInstance()
+                .newDocumentBuilder()
+                .newDocument();
+        var root = doc.createElementNS("http://chibiforge/schema/config", "chibiforgeConfiguration");
+        root.setAttribute("toolVersion", "1.0.0");
+        root.setAttribute("schemaVersion", "1.0");
+        doc.appendChild(root);
+
+        var targets = doc.createElementNS("http://chibiforge/schema/config", "targets");
+        var target = doc.createElementNS("http://chibiforge/schema/config", "target");
+        target.setAttribute("id", "default");
+        targets.appendChild(target);
+        root.appendChild(targets);
+        root.appendChild(doc.createElementNS("http://chibiforge/schema/config", "components"));
+
+        ConfigLoader.LoadedConfiguration loaded = loader.loadWithDocument(
+                new java.io.ByteArrayInputStream("""
+                        <?xml version="1.0" encoding="UTF-8"?>
+                        <chibiforgeConfiguration xmlns="http://chibiforge/schema/config" toolVersion="1.0.0" schemaVersion="1.0">
+                          <targets><target id="default"/></targets>
+                          <components/>
+                        </chibiforgeConfiguration>
+                        """.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+        ChibiForgeConfiguration config = loader.load(doc);
+
+        assertThat(config.getTargets()).containsExactly("default");
+        assertThat(config.getComponents()).isEmpty();
+        assertThat(loaded.rootElement().getLocalName()).isEqualTo("chibiforgeConfiguration");
+        assertThat(loaded.configuration().getComponents()).isEmpty();
     }
 
     private ChibiForgeConfiguration loadFixture(String name) throws Exception {

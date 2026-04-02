@@ -67,6 +67,25 @@ public class ComponentRegistry {
     }
 
     /**
+     * Build a registry from ordered component roots.
+     * Roots are scanned from lowest to highest precedence so earlier list entries
+     * override later ones.
+     */
+    public static ComponentRegistry build(List<Path> componentRoots) throws IOException {
+        Map<String, ComponentContainer> map = new LinkedHashMap<>();
+
+        if (componentRoots != null) {
+            ListIterator<Path> it = componentRoots.listIterator(componentRoots.size());
+            while (it.hasPrevious()) {
+                scanRoot(it.previous(), map);
+            }
+        }
+
+        log.info("Component registry: {} component(s) discovered", map.size());
+        return new ComponentRegistry(map);
+    }
+
+    /**
      * Build a registry from filesystem components only.
      */
     public static ComponentRegistry fromFilesystem(Path componentsRoot) throws IOException {
@@ -78,6 +97,25 @@ public class ComponentRegistry {
      */
     public static ComponentRegistry fromPlugins(Path pluginsRoot) throws IOException {
         return build(null, pluginsRoot);
+    }
+
+    private static void scanRoot(Path root, Map<String, ComponentContainer> map) throws IOException {
+        if (root == null) {
+            return;
+        }
+        if (Files.isRegularFile(root) && root.getFileName().toString().endsWith(".jar")) {
+            scanPluginJar(root, map);
+            return;
+        }
+        if (!Files.isDirectory(root)) {
+            return;
+        }
+        if (Files.exists(root.resolve("component").resolve("schema.xml"))) {
+            registerFilesystemContainer(new FilesystemContainer(root), map);
+            return;
+        }
+        scanPlugins(root, map);
+        scanFilesystem(root, map);
     }
 
     private static void scanFilesystem(Path componentsRoot, Map<String, ComponentContainer> map) throws IOException {
@@ -92,13 +130,7 @@ public class ComponentRegistry {
                     continue;
                 }
 
-                FilesystemContainer container = new FilesystemContainer(dir);
-                String id = container.getId();
-                if (map.containsKey(id)) {
-                    log.info("Filesystem component '{}' overrides JAR/previous source", id);
-                }
-                map.put(id, container);
-                log.debug("Discovered filesystem component '{}' at {}", id, dir);
+                registerFilesystemContainer(new FilesystemContainer(dir), map);
             }
         }
     }
@@ -106,20 +138,34 @@ public class ComponentRegistry {
     private static void scanPlugins(Path pluginsRoot, Map<String, ComponentContainer> map) throws IOException {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(pluginsRoot, "*.jar")) {
             for (Path jarPath : stream) {
-                JarContainer container = JarContainer.openIfValid(jarPath);
-                if (container == null) {
-                    log.debug("Skipping {}: not a ChibiForge plugin", jarPath.getFileName());
-                    continue;
-                }
-
-                String id = container.getId();
-                if (map.containsKey(id)) {
-                    log.warn("Duplicate plugin component ID '{}': {} overrides previous", id, jarPath);
-                }
-                map.put(id, container);
-                log.debug("Discovered plugin component '{}' in {}", id, jarPath);
+                scanPluginJar(jarPath, map);
             }
         }
+    }
+
+    private static void scanPluginJar(Path jarPath, Map<String, ComponentContainer> map) throws IOException {
+        JarContainer container = JarContainer.openIfValid(jarPath);
+        if (container == null) {
+            log.debug("Skipping {}: not a ChibiForge plugin", jarPath.getFileName());
+            return;
+        }
+
+        String id = container.getId();
+        if (map.containsKey(id)) {
+            log.warn("Duplicate plugin component ID '{}': {} overrides previous", id, jarPath);
+        }
+        map.put(id, container);
+        log.debug("Discovered plugin component '{}' in {}", id, jarPath);
+    }
+
+    private static void registerFilesystemContainer(FilesystemContainer container,
+                                                    Map<String, ComponentContainer> map) {
+        String id = container.getId();
+        if (map.containsKey(id)) {
+            log.info("Filesystem component '{}' overrides JAR/previous source", id);
+        }
+        map.put(id, container);
+        log.debug("Discovered filesystem component '{}' at {}", id, container.getContainerRoot());
     }
 
     /**

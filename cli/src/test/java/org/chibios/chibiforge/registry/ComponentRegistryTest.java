@@ -25,7 +25,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.List;
 import java.util.NoSuchElementException;
 
 import static org.assertj.core.api.Assertions.*;
@@ -83,5 +85,46 @@ class ComponentRegistryTest {
 
         assertThat(content.exists("schema.xml")).isTrue();
         assertThat(content.exists("nonexistent.xml")).isFalse();
+    }
+
+    @Test
+    void orderedRootsUseHigherPrecedenceFirst(@TempDir Path tempDir) throws Exception {
+        Path lowRoot = tempDir.resolve("low-root");
+        Path highRoot = tempDir.resolve("high-root");
+        createComponent(lowRoot, "test.component", "Low Precedence");
+        createComponent(highRoot, "test.component", "High Precedence");
+
+        ComponentRegistry registry = ComponentRegistry.build(List.of(highRoot, lowRoot));
+
+        ComponentContainer container = registry.lookup("test.component");
+        assertThat(container.loadDefinition().getName()).isEqualTo("High Precedence");
+    }
+
+    private void createComponent(Path root, String componentId, String componentName) throws IOException {
+        Path componentDir = root.resolve(componentId).resolve("component");
+        Files.createDirectories(componentDir);
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <component xmlns="http://chibiforge/schema/component"
+                           id="%s"
+                           name="%s"
+                           version="1.0.0"
+                           hidden="false"
+                           is_platform="false">
+                  <description>Test.</description>
+                  <resources/>
+                  <categories>
+                    <category id="Test"/>
+                  </categories>
+                  <requires/>
+                  <provides/>
+                  <sections>
+                    <section name="Settings" expanded="true" editable="true" visible="true">
+                      <description>Section.</description>
+                    </section>
+                  </sections>
+                </component>
+                """.formatted(componentId, componentName);
+        Files.writeString(componentDir.resolve("schema.xml"), xml, StandardCharsets.UTF_8);
     }
 }

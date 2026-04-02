@@ -47,6 +47,7 @@ public class ComponentsView {
     private String selectedComponentId;
     private Consumer<String> onComponentDoubleClick;
     private Runnable onAddSelected;
+    private Consumer<String> onRemoveSelected;
 
     public ComponentsView(AppModel model) {
         this.model = model;
@@ -101,6 +102,13 @@ public class ComponentsView {
      */
     public void setOnAddSelected(Runnable handler) {
         this.onAddSelected = handler;
+    }
+
+    /**
+     * Set callback for removing the selected component.
+     */
+    public void setOnRemoveSelected(Consumer<String> handler) {
+        this.onRemoveSelected = handler;
     }
 
     /**
@@ -192,26 +200,9 @@ public class ComponentsView {
     }
 
     private void removeComponent(String componentId) {
-        var config = model.getConfiguration();
-        if (config == null) return;
-
-        // Remove from the xcfg DOM
-        var components = config.getComponents();
-        var iterator = components.iterator();
-        // ChibiForgeConfiguration uses an immutable list — we need to rebuild
-        // For now, we remove the element from the DOM directly
-        for (var entry : components) {
-            if (entry.getComponentId().equals(componentId)) {
-                var element = entry.getConfigElement();
-                element.getParentNode().removeChild(element);
-                break;
-            }
+        if (onRemoveSelected != null) {
+            onRemoveSelected.accept(componentId);
         }
-
-        // Reload configuration from the modified DOM
-        // TODO: proper model update — for now just reload
-        model.setModified(true);
-        refresh();
     }
 
     public String getSelectedComponentId() { return selectedComponentId; }

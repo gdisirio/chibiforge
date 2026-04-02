@@ -22,6 +22,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.chibios.chibiforge.component.ComponentDefinition;
@@ -43,12 +44,17 @@ import org.chibios.chibiforge.ui.io.XcfgWriter;
 import org.chibios.chibiforge.ui.targets.ManageTargetsDialog;
 import org.chibios.chibiforge.ui.model.AppModel;
 import org.chibios.chibiforge.ui.palette.ComponentPalette;
+import org.chibios.chibiforge.ui.sources.ComponentSourceResolver;
+import org.chibios.chibiforge.ui.sources.ResolvedComponentSources;
 import org.chibios.chibiforge.generator.GenerationAction;
 import org.chibios.chibiforge.generator.GenerationContext;
 import org.chibios.chibiforge.generator.GenerationReport;
 import org.chibios.chibiforge.generator.GeneratorEngine;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -56,18 +62,29 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.prefs.Preferences;
+
+import javax.xml.parsers.DocumentBuilderFactory;
 
 /**
  * Main application window layout.
  */
 public class MainWindow {
 
+    private static final String CONFIG_NS = "http://chibiforge/schema/config";
+    private static final String DEFAULT_TOOL_VERSION = "1.0.0";
+    private static final String DEFAULT_SCHEMA_VERSION = "1.0";
+    private static final int MAX_RECENT_FILES = 10;
+    private static final String RECENT_FILES_KEY = "recentFiles";
+
     private final Stage stage;
     private final AppModel model;
     private final BorderPane root;
+    private final Preferences preferences;
 
     // Top
     private final MenuBar menuBar;
+    private final Menu recentFilesMenu;
     private final ToolBar toolBar;
     private final ComboBox<String> targetSelector;
     private final ToggleButton inspectorToggle;
@@ -85,12 +102,15 @@ public class MainWindow {
     // Status bar
     private final Label statusLeft;
     private final Label statusRight;
+    private final List<Path> recentFiles = new ArrayList<>();
 
     public MainWindow(Stage stage, AppModel model) {
         this.stage = stage;
         this.model = model;
+        this.preferences = Preferences.userNodeForPackage(MainWindow.class);
 
         // Menu bar
+        recentFilesMenu = new Menu("Recent Files");
         menuBar = createMenuBar();
 
         // Target selector
@@ -143,13 +163,11 @@ public class MainWindow {
         componentsView = new ComponentsView(model);
         componentsView.setOnComponentDoubleClick(compId -> showConfigurationForm(compId));
         componentsView.setOnAddSelected(() -> addSelectedComponent());
+        componentsView.setOnRemoveSelected(this::removeConfiguredComponent);
 
         // Center panel
         centerPanel = new StackPane();
         centerPanel.getStyleClass().add("center-panel");
-        Label placeholder = new Label("Open a configuration file to begin");
-        placeholder.getStyleClass().add("placeholder-text");
-
         VBox centerContainer = new VBox(breadcrumb, centerPanel);
         VBox.setVgrow(centerPanel, Priority.ALWAYS);
 
@@ -190,33 +208,26 @@ public class MainWindow {
 
         // Close confirmation
         stage.setOnCloseRequest(e -> {
-            if (model.isModified()) {
-                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                        "Save changes before closing?",
-                        new ButtonType("Save", ButtonBar.ButtonData.YES),
-                        new ButtonType("Don't Save", ButtonBar.ButtonData.NO),
-                        ButtonType.CANCEL);
-                confirm.setHeaderText(null);
-                var result = confirm.showAndWait();
-                if (result.isEmpty() || result.get() == ButtonType.CANCEL) {
-                    e.consume();
-                    return;
-                }
-                if (result.get().getButtonData() == ButtonBar.ButtonData.YES) {
-                    saveConfiguration();
-                }
+            if (!confirmSafeToDiscardChanges("closing")) {
+                e.consume();
             }
         });
 
         // Bind title bar to config file path
-        model.configFileProperty().addListener((obs, old, path) -> {
-            stage.setTitle(path != null ? "ChibiForge - " + path : "ChibiForge");
-        });
+        model.configFileProperty().addListener((obs, old, path) -> updateWindowTitle());
+        model.configurationProperty().addListener((obs, old, config) -> updateWindowTitle());
 
         // Bind status bar to model
         model.modifiedProperty().addListener((obs, old, mod) -> {
-            statusRight.setText(mod ? "Modified" : "Saved");
+            updateStatusBar();
+            updateWindowTitle();
         });
+
+        loadRecentFiles();
+        rebuildRecentFilesMenu();
+        showWelcomeScreen();
+        updateWindowTitle();
+        updateStatusBar();
     }
 
     /**
@@ -225,55 +236,9 @@ public class MainWindow {
     public void openConfiguration(Path configFile) {
         try {
             ConfigLoader loader = new ConfigLoader();
-            ChibiForgeConfiguration config = loader.load(configFile);
-
-            Path configRoot = configFile.getParent();
-            if (configRoot == null) configRoot = Path.of(".");
-
-            model.setConfigFile(configFile.toAbsolutePath());
-            model.setConfigRoot(configRoot.toAbsolutePath());
-            model.setConfiguration(config);
-            model.setModified(false);
-
-            // Update targets
-            model.getTargets().setAll(config.getTargets());
-            targetSelector.getItems().setAll(config.getTargets());
-            targetSelector.getSelectionModel().select(model.getActiveTarget());
-
-            // Build component registry
-            ComponentRegistry registry = ComponentRegistry.build(
-                    model.getComponentsRoot(), model.getPluginsRoot());
-            model.setRegistry(registry);
-
-            // Check feature dependencies
-            model.getWarnings().clear();
-            FeatureChecker checker = new FeatureChecker();
-            var definitions = new java.util.ArrayList<org.chibios.chibiforge.component.ComponentDefinition>();
-            for (var entry : config.getComponents()) {
-                try {
-                    var container = registry.lookup(entry.getComponentId());
-                    definitions.add(container.loadDefinition());
-                } catch (Exception ignored) {
-                    // Component not found — will show as warning
-                }
-            }
-            List<String> warnings = checker.check(definitions);
-            model.getWarnings().setAll(warnings);
-
-            // Update palette
-            palette.refresh();
-
-            // Update status
-            int compCount = config.getComponents().size();
-            int regCount = registry.size();
-            statusLeft.setText(compCount + " component(s) configured, " +
-                    regCount + " available, target: " + model.getActiveTarget());
-
-            if (!warnings.isEmpty()) {
-                statusRight.setText(warnings.size() + " warning(s)");
-            }
-
-            // Show components view
+            ConfigLoader.LoadedConfiguration loaded = loader.loadWithDocument(configFile);
+            applyConfiguration(loaded.configuration(), loaded.rootElement(), configFile.toAbsolutePath());
+            rememberRecentFile(configFile);
             showComponentsView();
 
         } catch (Exception e) {
@@ -285,10 +250,141 @@ public class MainWindow {
         }
     }
 
+    private void newConfiguration() {
+        try {
+            Document doc = createEmptyConfigurationDocument();
+            ConfigLoader loader = new ConfigLoader();
+            ChibiForgeConfiguration config = loader.load(doc);
+            applyConfiguration(config, doc.getDocumentElement(), null);
+            model.setModified(false);
+            showComponentsView();
+            inspector.appendLog("Created new configuration");
+        } catch (Exception e) {
+            Alert alert = new Alert(Alert.AlertType.ERROR,
+                    "Failed to create configuration:\n" + e.getMessage(),
+                    ButtonType.OK);
+            alert.setTitle("Error");
+            alert.showAndWait();
+        }
+    }
+
+    private void requestNewConfiguration() {
+        if (confirmSafeToDiscardChanges("creating a new configuration")) {
+            newConfiguration();
+        }
+    }
+
+    private void applyConfiguration(ChibiForgeConfiguration config, Element rootElement, Path configFile) throws Exception {
+        Path absoluteConfigFile = configFile != null ? configFile.toAbsolutePath() : null;
+        Path configRoot = absoluteConfigFile != null
+                ? absoluteConfigFile.getParent()
+                : null;
+
+        model.setConfigFile(absoluteConfigFile);
+        model.setConfigRoot(configRoot);
+        model.setConfigurationRootElement(rootElement);
+        model.setConfiguration(config);
+
+        updateTargets(config);
+        refreshRegistryAndWarnings(absoluteConfigFile, config);
+        palette.refresh();
+        inspector.refreshFiles();
+        inspector.showConfigurationHelp();
+        model.setModified(false);
+        updateStatusBar();
+    }
+
+    private void updateTargets(ChibiForgeConfiguration config) {
+        model.getTargets().setAll(config.getTargets());
+        targetSelector.getItems().setAll(config.getTargets());
+        String activeTarget = model.getActiveTarget();
+        if (activeTarget == null || !config.getTargets().contains(activeTarget)) {
+            activeTarget = "default";
+            model.setActiveTarget(activeTarget);
+        }
+        targetSelector.getSelectionModel().select(activeTarget);
+    }
+
+    private void refreshRegistryAndWarnings(Path configFile, ChibiForgeConfiguration config) throws Exception {
+        ResolvedComponentSources resolvedSources = configFile != null
+                ? resolveComponentSources(configFile)
+                : resolvePreferredComponentSources();
+
+        model.getResolvedComponentRoots().setAll(resolvedSources.roots());
+        ComponentRegistry registry = ComponentRegistry.build(resolvedSources.roots());
+        model.setRegistry(registry);
+
+        List<String> warnings = new ArrayList<>(resolvedSources.warnings());
+        model.getUnresolvedComponents().clear();
+
+        FeatureChecker checker = new FeatureChecker();
+        List<ComponentDefinition> definitions = new ArrayList<>();
+        for (ComponentConfigEntry entry : config.getComponents()) {
+            try {
+                ComponentContainer container = registry.lookup(entry.getComponentId());
+                definitions.add(container.loadDefinition());
+            } catch (Exception ignored) {
+                model.getUnresolvedComponents().add(entry.getComponentId());
+            }
+        }
+
+        for (String unresolved : model.getUnresolvedComponents()) {
+            warnings.add("Component '" + unresolved + "' could not be resolved from the discovered component roots.");
+        }
+        warnings.addAll(checker.check(definitions));
+        model.getWarnings().setAll(warnings);
+    }
+
+    private ResolvedComponentSources resolvePreferredComponentSources() {
+        List<Path> roots = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
+        if (model.getComponentsRoot() != null) {
+            if (Files.exists(model.getComponentsRoot())) {
+                roots.add(model.getComponentsRoot().toAbsolutePath().normalize());
+            } else {
+                warnings.add("Components root is invalid: " + model.getComponentsRoot());
+            }
+        }
+        if (model.getPluginsRoot() != null) {
+            if (Files.exists(model.getPluginsRoot())) {
+                roots.add(model.getPluginsRoot().toAbsolutePath().normalize());
+            } else {
+                warnings.add("Plugins root is invalid: " + model.getPluginsRoot());
+            }
+        }
+        return new ResolvedComponentSources(roots, warnings);
+    }
+
+    private Document createEmptyConfigurationDocument() throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        Document doc = factory.newDocumentBuilder().newDocument();
+
+        Element rootElement = doc.createElementNS(CONFIG_NS, "chibiforgeConfiguration");
+        rootElement.setAttribute("toolVersion", DEFAULT_TOOL_VERSION);
+        rootElement.setAttribute("schemaVersion", DEFAULT_SCHEMA_VERSION);
+        doc.appendChild(rootElement);
+
+        Element targetsElement = doc.createElementNS(CONFIG_NS, "targets");
+        Element targetElement = doc.createElementNS(CONFIG_NS, "target");
+        targetElement.setAttribute("id", "default");
+        targetsElement.appendChild(targetElement);
+        rootElement.appendChild(targetsElement);
+
+        Element componentsElement = doc.createElementNS(CONFIG_NS, "components");
+        rootElement.appendChild(componentsElement);
+
+        return doc;
+    }
+
     /**
      * Show the top-level components card view.
      */
     private void showComponentsView() {
+        if (model.getConfiguration() == null) {
+            showWelcomeScreen();
+            return;
+        }
         breadcrumb.setPath("Components");
         centerPanel.getChildren().clear();
         centerPanel.getChildren().add(componentsView.getRoot());
@@ -354,33 +450,44 @@ public class MainWindow {
         if (config == null) return;
 
         try {
-            // Find the <components> element and add a new <component id="..."/>
-            var firstEntry = config.getComponents().isEmpty() ? null : config.getComponents().get(0);
-            if (firstEntry != null) {
-                var componentsElement = firstEntry.getConfigElement().getParentNode();
-                var doc = firstEntry.getConfigElement().getOwnerDocument();
-                var newComp = doc.createElementNS(
-                        firstEntry.getConfigElement().getNamespaceURI(), "component");
-                newComp.setAttribute("id", compId);
-                componentsElement.appendChild(newComp);
-            }
+            Element componentsElement = findOrCreateComponentsElement();
+            Document doc = componentsElement.getOwnerDocument();
+            Element newComp = doc.createElementNS(componentsElement.getNamespaceURI(), "component");
+            newComp.setAttribute("id", compId);
+            componentsElement.appendChild(newComp);
 
-            // Reload the configuration to pick up the new component
-            // TODO: proper incremental model update
-            Path configFile = model.getConfigFile();
-            if (configFile != null) {
-                // Re-parse to get updated component list
-                var loader = new org.chibios.chibiforge.config.ConfigLoader();
-                // For now, mark modified and refresh views
-                model.setModified(true);
-            }
-
+            refreshConfigurationFromDocument();
+            model.setModified(true);
             componentsView.refresh();
             palette.refresh();
             updateStatusBar();
         } catch (Exception e) {
             Alert alert = new Alert(Alert.AlertType.ERROR,
                     "Failed to add component: " + e.getMessage(), ButtonType.OK);
+            alert.showAndWait();
+        }
+    }
+
+    private void removeConfiguredComponent(String componentId) {
+        var config = model.getConfiguration();
+        if (config == null) return;
+
+        try {
+            for (ComponentConfigEntry entry : config.getComponents()) {
+                if (entry.getComponentId().equals(componentId)) {
+                    entry.getConfigElement().getParentNode().removeChild(entry.getConfigElement());
+                    refreshConfigurationFromDocument();
+                    model.setModified(true);
+                    componentsView.refresh();
+                    palette.refresh();
+                    inspector.showConfigurationHelp();
+                    updateStatusBar();
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            Alert alert = new Alert(Alert.AlertType.ERROR,
+                    "Failed to remove component: " + e.getMessage(), ButtonType.OK);
             alert.showAndWait();
         }
     }
@@ -394,28 +501,82 @@ public class MainWindow {
         return componentId;
     }
 
+    private Element findOrCreateComponentsElement() {
+        Element rootElement = model.getConfigurationRootElement();
+        if (rootElement == null) {
+            throw new IllegalStateException("No configuration document loaded");
+        }
+        var children = rootElement.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            if (children.item(i) instanceof Element child) {
+                String localName = child.getLocalName() != null ? child.getLocalName() : child.getTagName();
+                if ("components".equals(localName)) {
+                    return child;
+                }
+            }
+        }
+        Element componentsElement = rootElement.getOwnerDocument().createElementNS(CONFIG_NS, "components");
+        rootElement.appendChild(componentsElement);
+        return componentsElement;
+    }
+
+    private void refreshConfigurationFromDocument() throws Exception {
+        Element rootElement = model.getConfigurationRootElement();
+        if (rootElement == null) {
+            throw new IllegalStateException("No configuration document loaded");
+        }
+        ConfigLoader loader = new ConfigLoader();
+        ChibiForgeConfiguration config = loader.load(rootElement.getOwnerDocument());
+        model.setConfiguration(config);
+        updateTargets(config);
+        refreshRegistryAndWarnings(model.getConfigFile(), config);
+    }
+
     private void updateStatusBar() {
         var config = model.getConfiguration();
         var registry = model.getRegistry();
-        if (config != null && registry != null) {
+        if (config != null) {
             int compCount = config.getComponents().size();
+            int regCount = registry != null ? registry.size() : 0;
             statusLeft.setText(compCount + " component(s) configured, " +
-                    registry.size() + " available, target: " + model.getActiveTarget());
+                    regCount + " available, target: " + model.getActiveTarget());
+        } else {
+            statusLeft.setText("No configuration loaded");
         }
+        List<String> rightParts = new ArrayList<>();
         if (!model.getWarnings().isEmpty()) {
-            statusRight.setText(model.getWarnings().size() + " warning(s)");
+            rightParts.add(model.getWarnings().size() + " warning(s)");
         }
+        if (model.getConfiguration() == null && !model.isModified()) {
+            rightParts.add("Ready");
+        } else {
+            rightParts.add(model.isModified() ? "Modified" : "Saved");
+        }
+        statusRight.setText(String.join(" · ", rightParts));
     }
 
-    private void saveConfiguration() {
-        if (model.getConfigFile() == null || model.getConfiguration() == null) return;
+    private ResolvedComponentSources resolveComponentSources(Path configFile) {
+        List<Path> preferredRoots = new ArrayList<>();
+        if (model.getComponentsRoot() != null) {
+            preferredRoots.add(model.getComponentsRoot());
+        }
+        if (model.getPluginsRoot() != null) {
+            preferredRoots.add(model.getPluginsRoot());
+        }
+        return new ComponentSourceResolver().resolve(configFile, preferredRoots);
+    }
+
+    private boolean saveConfiguration() {
+        if (model.getConfiguration() == null) return false;
+        if (model.getConfigFile() == null) {
+            return saveConfigurationAs();
+        }
 
         try {
-            // Get the document root from any component's config element
-            var components = model.getConfiguration().getComponents();
-            if (components.isEmpty()) return;
-            var element = components.get(0).getConfigElement();
-            var docElement = element.getOwnerDocument().getDocumentElement();
+            Element docElement = model.getConfigurationRootElement();
+            if (docElement == null) {
+                return false;
+            }
 
             // Collect exact text-property paths from all component schemas.
             Map<String, Set<String>> textPropertyPaths = collectTextPropertyPaths();
@@ -423,11 +584,65 @@ public class MainWindow {
             XcfgWriter writer = new XcfgWriter();
             writer.save(docElement, model.getConfigFile(), textPropertyPaths);
             model.setModified(false);
+            rememberRecentFile(model.getConfigFile());
             inspector.appendLog("Saved: " + model.getConfigFile());
+            updateStatusBar();
+            return true;
         } catch (Exception e) {
             Alert alert = new Alert(Alert.AlertType.ERROR,
                     "Failed to save:\n" + e.getMessage(), ButtonType.OK);
             alert.showAndWait();
+            return false;
+        }
+    }
+
+    private boolean saveConfigurationAs() {
+        if (model.getConfiguration() == null) return false;
+
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Save ChibiForge Configuration File");
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Configuration Files (*.xcfg)", "*.xcfg"),
+                new FileChooser.ExtensionFilter("All Files", "*.*"));
+
+        Path currentFile = model.getConfigFile();
+        if (currentFile != null) {
+            if (currentFile.getParent() != null && Files.isDirectory(currentFile.getParent())) {
+                chooser.setInitialDirectory(currentFile.getParent().toFile());
+            }
+            chooser.setInitialFileName(currentFile.getFileName().toString());
+        } else {
+            if (model.getConfigRoot() != null && Files.isDirectory(model.getConfigRoot())) {
+                chooser.setInitialDirectory(model.getConfigRoot().toFile());
+            }
+            chooser.setInitialFileName("chibiforge.xcfg");
+        }
+
+        File file = chooser.showSaveDialog(stage);
+        if (file == null) {
+            return false;
+        }
+
+        Path outputPath = file.toPath().toAbsolutePath();
+        Path outputRoot = outputPath.getParent() != null ? outputPath.getParent() : Path.of(".");
+        try {
+            Map<String, Set<String>> textPropertyPaths = collectTextPropertyPaths();
+            XcfgWriter writer = new XcfgWriter();
+            writer.save(model.getConfigurationRootElement(), outputPath, textPropertyPaths);
+            model.setConfigFile(outputPath);
+            model.setConfigRoot(outputRoot);
+            refreshRegistryAndWarnings(outputPath, model.getConfiguration());
+            rememberRecentFile(outputPath);
+            model.setModified(false);
+            inspector.appendLog("Saved: " + outputPath);
+            inspector.refreshFiles();
+            updateStatusBar();
+            return true;
+        } catch (Exception e) {
+            Alert alert = new Alert(Alert.AlertType.ERROR,
+                    "Failed to save:\n" + e.getMessage(), ButtonType.OK);
+            alert.showAndWait();
+            return false;
         }
     }
 
@@ -493,7 +708,9 @@ public class MainWindow {
             var result = savePrompt.showAndWait();
             if (result.isEmpty() || result.get() == ButtonType.CANCEL) return;
             if (result.get().getButtonData() == ButtonBar.ButtonData.YES) {
-                saveConfiguration();
+                if (!saveConfiguration()) {
+                    return;
+                }
             }
         }
 
@@ -506,7 +723,7 @@ public class MainWindow {
                     model.getActiveTarget(), false, true);
             GeneratorEngine engine = new GeneratorEngine();
             GenerationReport report = engine.generate(ctx,
-                    model.getComponentsRoot(), model.getPluginsRoot());
+                    List.copyOf(model.getResolvedComponentRoots()));
 
             for (var action : report.getActions()) {
                 inspector.appendLog("  " + action);
@@ -583,33 +800,211 @@ public class MainWindow {
         });
     }
 
-    private MenuBar createMenuBar() {
-        Menu fileMenu = new Menu("_File");
-        MenuItem openItem = new MenuItem("Open...");
-        openItem.setOnAction(e -> {
-            FileChooser chooser = new FileChooser();
-            chooser.setTitle("Open ChibiForge Configuration File");
-            chooser.getExtensionFilters().addAll(
-                    new FileChooser.ExtensionFilter("Configuration Files (*.xcfg)", "*.xcfg"),
-                    new FileChooser.ExtensionFilter("All Files", "*.*"));
-            File file = chooser.showOpenDialog(stage);
-            if (file != null) {
-                openConfiguration(file.toPath());
+    private void openConfigurationDialog() {
+        if (!confirmSafeToDiscardChanges("opening another configuration")) {
+            return;
+        }
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Open ChibiForge Configuration File");
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Configuration Files (*.xcfg)", "*.xcfg"),
+                new FileChooser.ExtensionFilter("All Files", "*.*"));
+        Path initialDir = model.getConfigRoot();
+        if (initialDir != null && Files.isDirectory(initialDir)) {
+            chooser.setInitialDirectory(initialDir.toFile());
+        }
+        File file = chooser.showOpenDialog(stage);
+        if (file != null) {
+            openConfiguration(file.toPath());
+        }
+    }
+
+    private void openRecentConfiguration(Path path) {
+        if (!Files.exists(path)) {
+            recentFiles.remove(path.toAbsolutePath().normalize());
+            saveRecentFiles();
+            rebuildRecentFilesMenu();
+            showMissingRecentFileAlert(path);
+            return;
+        }
+        if (!confirmSafeToDiscardChanges("opening another configuration")) {
+            return;
+        }
+        openConfiguration(path);
+    }
+
+    private boolean confirmSafeToDiscardChanges(String action) {
+        if (!model.isModified()) {
+            return true;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "Save changes before " + action + "?",
+                new ButtonType("Save", ButtonBar.ButtonData.YES),
+                new ButtonType("Don't Save", ButtonBar.ButtonData.NO),
+                ButtonType.CANCEL);
+        confirm.setHeaderText(null);
+        var result = confirm.showAndWait();
+        if (result.isEmpty() || result.get() == ButtonType.CANCEL) {
+            return false;
+        }
+        if (result.get().getButtonData() == ButtonBar.ButtonData.YES) {
+            return saveConfiguration();
+        }
+        return true;
+    }
+
+    private void showWelcomeScreen() {
+        breadcrumb.setPath("Welcome");
+
+        Label title = new Label("ChibiForge");
+        title.getStyleClass().add("panel-header");
+
+        Label subtitle = new Label("Open an existing configuration or create a new one.");
+        subtitle.getStyleClass().add("placeholder-text");
+        subtitle.setWrapText(true);
+        subtitle.setTextAlignment(TextAlignment.CENTER);
+
+        Button newButton = new Button("New Configuration");
+        newButton.setOnAction(e -> requestNewConfiguration());
+
+        Button openButton = new Button("Open Configuration...");
+        openButton.setOnAction(e -> openConfigurationDialog());
+
+        HBox actions = new HBox(12, newButton, openButton);
+        actions.setAlignment(Pos.CENTER);
+
+        VBox content = new VBox(16, title, subtitle, actions);
+        content.setAlignment(Pos.CENTER);
+        content.setPadding(new Insets(32));
+
+        if (!recentFiles.isEmpty()) {
+            VBox recentBox = new VBox(8);
+            recentBox.setAlignment(Pos.CENTER_LEFT);
+            recentBox.setMaxWidth(500);
+
+            Label recentLabel = new Label("Recent Files");
+            recentLabel.getStyleClass().add("panel-header");
+            recentBox.getChildren().add(recentLabel);
+
+            for (Path recentFile : recentFiles) {
+                Hyperlink link = new Hyperlink(recentFile.toString());
+                link.setOnAction(e -> openRecentConfiguration(recentFile));
+                recentBox.getChildren().add(link);
+            }
+            content.getChildren().add(recentBox);
+        }
+
+        centerPanel.getChildren().setAll(content);
+        inspector.showConfigurationHelp();
+        inspector.refreshFiles();
+        updateStatusBar();
+    }
+
+    private void updateWindowTitle() {
+        String title = "ChibiForge";
+        if (model.getConfigFile() != null) {
+            title += " - " + model.getConfigFile();
+        } else if (model.getConfiguration() != null) {
+            title += " - Untitled";
+        }
+        stage.setTitle(title);
+    }
+
+    private void loadRecentFiles() {
+        recentFiles.clear();
+        String stored = preferences.get(RECENT_FILES_KEY, "");
+        if (stored.isBlank()) {
+            return;
+        }
+        for (String value : stored.split("\n")) {
+            if (!value.isBlank()) {
+                recentFiles.add(Path.of(value));
+            }
+        }
+    }
+
+    private void saveRecentFiles() {
+        preferences.put(RECENT_FILES_KEY, recentFiles.stream()
+                .map(Path::toString)
+                .reduce((left, right) -> left + "\n" + right)
+                .orElse(""));
+    }
+
+    private void rememberRecentFile(Path path) {
+        Path normalized = path.toAbsolutePath().normalize();
+        recentFiles.remove(normalized);
+        recentFiles.add(0, normalized);
+        while (recentFiles.size() > MAX_RECENT_FILES) {
+            recentFiles.remove(recentFiles.size() - 1);
+        }
+        saveRecentFiles();
+        rebuildRecentFilesMenu();
+    }
+
+    private void rebuildRecentFilesMenu() {
+        recentFilesMenu.getItems().clear();
+        if (recentFiles.isEmpty()) {
+            MenuItem emptyItem = new MenuItem("No recent files");
+            emptyItem.setDisable(true);
+            recentFilesMenu.getItems().add(emptyItem);
+            recentFilesMenu.setDisable(true);
+            return;
+        }
+
+        recentFilesMenu.setDisable(false);
+        for (Path path : recentFiles) {
+            MenuItem item = new MenuItem(path.toString());
+            item.setOnAction(e -> openRecentConfiguration(path));
+            recentFilesMenu.getItems().add(item);
+        }
+        recentFilesMenu.getItems().add(new SeparatorMenuItem());
+        MenuItem clearItem = new MenuItem("Clear Menu");
+        clearItem.setOnAction(e -> {
+            recentFiles.clear();
+            saveRecentFiles();
+            rebuildRecentFilesMenu();
+            if (model.getConfiguration() == null) {
+                showWelcomeScreen();
             }
         });
+        recentFilesMenu.getItems().add(clearItem);
+    }
+
+    private void showMissingRecentFileAlert(Path path) {
+        Alert alert = new Alert(Alert.AlertType.WARNING,
+                "The recent file is no longer available:\n" + path,
+                ButtonType.OK);
+        alert.setHeaderText(null);
+        alert.setTitle("Recent File Missing");
+        alert.showAndWait();
+    }
+
+    private MenuBar createMenuBar() {
+        Menu fileMenu = new Menu("_File");
+        MenuItem newItem = new MenuItem("New");
+        newItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+N"));
+        newItem.setOnAction(e -> requestNewConfiguration());
+
+        MenuItem openItem = new MenuItem("Open...");
+        openItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+O"));
+        openItem.setOnAction(e -> openConfigurationDialog());
         MenuItem saveItem = new MenuItem("Save");
         saveItem.setAccelerator(javafx.scene.input.KeyCombination.keyCombination("Ctrl+S"));
         saveItem.setOnAction(e -> saveConfiguration());
+        MenuItem saveAsItem = new MenuItem("Save As...");
+        saveAsItem.setOnAction(e -> saveConfigurationAs());
 
         MenuItem exitItem = new MenuItem("Exit");
         exitItem.setOnAction(e -> stage.close());
 
         fileMenu.getItems().addAll(
-                new MenuItem("New"),
+                newItem,
                 openItem,
+                recentFilesMenu,
                 new SeparatorMenuItem(),
                 saveItem,
-                new MenuItem("Save As..."),
+                saveAsItem,
                 new SeparatorMenuItem(),
                 exitItem
         );
@@ -647,6 +1042,8 @@ public class MainWindow {
     }
 
     private ToolBar createToolBar() {
+        Button newBtn = new Button("New");
+        newBtn.setOnAction(e -> requestNewConfiguration());
         Button saveBtn = new Button("Save");
         saveBtn.setOnAction(e -> saveConfiguration());
         Separator sep1 = new Separator();
@@ -665,7 +1062,7 @@ public class MainWindow {
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         return new ToolBar(
-                saveBtn, sep1,
+                newBtn, saveBtn, sep1,
                 generateBtn, cleanBtn,
                 new Separator(),
                 targetLabel, targetSelector, manageTargetsBtn,

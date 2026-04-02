@@ -182,6 +182,23 @@ public class InspectorPanel {
         addHelpLine("Targets: " + String.join(", ", model.getConfiguration().getTargets()));
         addHelpLine("Active target: " + model.getActiveTarget());
 
+        if (!model.getResolvedComponentRoots().isEmpty()) {
+            addHelpHeader("Component Roots");
+            for (Path root : model.getResolvedComponentRoots()) {
+                addHelpLine("  " + root);
+            }
+        }
+
+        if (!model.getUnresolvedComponents().isEmpty()) {
+            addHelpHeader("Unresolved Components");
+            for (String componentId : model.getUnresolvedComponents()) {
+                Label unresolved = new Label("  \u26A0 " + componentId);
+                unresolved.setWrapText(true);
+                unresolved.setStyle("-fx-text-fill: #cc6600;");
+                helpContent.getChildren().add(unresolved);
+            }
+        }
+
         if (!model.getWarnings().isEmpty()) {
             addHelpHeader("Warnings");
             for (String warning : model.getWarnings()) {

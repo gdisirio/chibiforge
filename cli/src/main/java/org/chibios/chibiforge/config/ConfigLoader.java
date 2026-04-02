@@ -37,6 +37,9 @@ public class ConfigLoader {
 
     private static final String NS = "http://chibiforge/schema/config";
 
+    public record LoadedConfiguration(ChibiForgeConfiguration configuration, Element rootElement) {
+    }
+
     public ChibiForgeConfiguration load(Path configPath) throws Exception {
         try (InputStream is = Files.newInputStream(configPath)) {
             return load(is);
@@ -44,11 +47,21 @@ public class ConfigLoader {
     }
 
     public ChibiForgeConfiguration load(InputStream input) throws Exception {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setNamespaceAware(true);
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        Document doc = builder.parse(input);
+        return load(parse(input));
+    }
 
+    public LoadedConfiguration loadWithDocument(Path configPath) throws Exception {
+        try (InputStream is = Files.newInputStream(configPath)) {
+            return loadWithDocument(is);
+        }
+    }
+
+    public LoadedConfiguration loadWithDocument(InputStream input) throws Exception {
+        Document doc = parse(input);
+        return new LoadedConfiguration(load(doc), doc.getDocumentElement());
+    }
+
+    public ChibiForgeConfiguration load(Document doc) {
         Element root = doc.getDocumentElement();
         if (!"chibiforgeConfiguration".equals(root.getLocalName())) {
             throw new IllegalArgumentException(
@@ -62,6 +75,13 @@ public class ConfigLoader {
         List<ComponentConfigEntry> components = parseComponents(root);
 
         return new ChibiForgeConfiguration(toolVersion, schemaVersion, targets, components);
+    }
+
+    private Document parse(InputStream input) throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        return builder.parse(input);
     }
 
     private List<String> parseTargets(Element root) {

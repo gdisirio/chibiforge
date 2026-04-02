@@ -1,4 +1,6 @@
 #!/bin/bash
 # ChibiForge UI wrapper
 DIR="$(cd "$(dirname "$0")" && pwd)"
-exec java -jar "$DIR/chibiforge-ui.jar" "$@"
+CACHE_DIR="${XDG_CACHE_HOME:-$DIR/.cache}/openjfx"
+mkdir -p "$CACHE_DIR"
+exec java -Djavafx.cachedir="$CACHE_DIR" -cp "$DIR/chibiforge-ui.jar:$DIR/chibiforge.jar" org.chibios.chibiforge.ui.ChibiForgeLauncher "$@"

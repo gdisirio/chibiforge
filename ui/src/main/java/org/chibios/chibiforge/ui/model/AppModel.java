@@ -24,6 +24,7 @@ import javafx.collections.ObservableList;
 import org.chibios.chibiforge.config.ChibiForgeConfiguration;
 import org.chibios.chibiforge.config.ComponentConfigEntry;
 import org.chibios.chibiforge.registry.ComponentRegistry;
+import org.w3c.dom.Element;
 
 import java.nio.file.Path;
 import java.util.Set;
@@ -38,11 +39,14 @@ public class AppModel {
     private final ObjectProperty<Path> configFile = new SimpleObjectProperty<>();
     private final ObjectProperty<Path> configRoot = new SimpleObjectProperty<>();
     private final ObjectProperty<ChibiForgeConfiguration> configuration = new SimpleObjectProperty<>();
+    private final ObjectProperty<Element> configurationRootElement = new SimpleObjectProperty<>();
     private final ObjectProperty<ComponentRegistry> registry = new SimpleObjectProperty<>();
     private final StringProperty activeTarget = new SimpleStringProperty("default");
     private final BooleanProperty modified = new SimpleBooleanProperty(false);
     private final ObservableList<String> targets = FXCollections.observableArrayList();
     private final ObservableList<String> warnings = FXCollections.observableArrayList();
+    private final ObservableList<String> unresolvedComponents = FXCollections.observableArrayList();
+    private final ObservableList<Path> resolvedComponentRoots = FXCollections.observableArrayList();
 
     // Component sources (set via preferences or CLI args)
     private final ObjectProperty<Path> componentsRoot = new SimpleObjectProperty<>();
@@ -60,6 +64,10 @@ public class AppModel {
     public void setConfiguration(ChibiForgeConfiguration config) { configuration.set(config); }
     public ObjectProperty<ChibiForgeConfiguration> configurationProperty() { return configuration; }
 
+    public Element getConfigurationRootElement() { return configurationRootElement.get(); }
+    public void setConfigurationRootElement(Element rootElement) { configurationRootElement.set(rootElement); }
+    public ObjectProperty<Element> configurationRootElementProperty() { return configurationRootElement; }
+
     public ComponentRegistry getRegistry() { return registry.get(); }
     public void setRegistry(ComponentRegistry reg) { registry.set(reg); }
     public ObjectProperty<ComponentRegistry> registryProperty() { return registry; }
@@ -74,6 +82,8 @@ public class AppModel {
 
     public ObservableList<String> getTargets() { return targets; }
     public ObservableList<String> getWarnings() { return warnings; }
+    public ObservableList<String> getUnresolvedComponents() { return unresolvedComponents; }
+    public ObservableList<Path> getResolvedComponentRoots() { return resolvedComponentRoots; }
 
     public Path getComponentsRoot() { return componentsRoot.get(); }
     public void setComponentsRoot(Path path) { componentsRoot.set(path); }

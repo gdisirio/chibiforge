@@ -59,6 +59,46 @@ public class GeneratorEngine {
         return generate(ctx, componentsRoot, null);
     }
 
+    public GenerationReport generate(GenerationContext ctx, List<Path> componentRoots)
+            throws ChibiForgeException {
+        GenerationReport report = new GenerationReport();
+
+        // 1. Load configuration
+        Path configPath = ctx.getConfigFile();
+        log.info("Loading configuration: {}", configPath);
+        ChibiForgeConfiguration config;
+        try {
+            config = configLoader.load(configPath);
+        } catch (Exception e) {
+            throw new ChibiForgeException(
+                    "Failed to load configuration file '" + configPath + "': " + e.getMessage(), e);
+        }
+
+        // 2. Resolve target
+        String target;
+        try {
+            target = targetResolver.resolve(config, ctx.getTarget());
+        } catch (IllegalArgumentException e) {
+            throw new ChibiForgeException(e.getMessage(), e);
+        }
+        log.info("Active target: {}", target);
+
+        if (componentRoots != null) {
+            for (Path root : componentRoots) {
+                log.info("Scanning component root: {}", root);
+            }
+        }
+        ComponentRegistry registry;
+        try {
+            registry = ComponentRegistry.build(componentRoots);
+        } catch (Exception e) {
+            throw new ChibiForgeException(
+                    "Failed to scan component sources: " + e.getMessage(), e);
+        }
+
+        return generateWithRegistry(ctx, config, target, registry, report);
+    }
+
     public GenerationReport generate(GenerationContext ctx, Path componentsRoot, Path pluginsRoot)
             throws ChibiForgeException {
         GenerationReport report = new GenerationReport();
@@ -97,6 +137,15 @@ public class GeneratorEngine {
             throw new ChibiForgeException(
                     "Failed to scan component sources: " + e.getMessage(), e);
         }
+
+        return generateWithRegistry(ctx, config, target, registry, report);
+    }
+
+    private GenerationReport generateWithRegistry(GenerationContext ctx,
+                                                  ChibiForgeConfiguration config,
+                                                  String target,
+                                                  ComponentRegistry registry,
+                                                  GenerationReport report) throws ChibiForgeException {
 
         // 4. Load component definitions
         Map<String, ComponentContainer> activeContainers = new LinkedHashMap<>();
