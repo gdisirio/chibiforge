@@ -184,7 +184,7 @@ The `build.properties` file tells the build what to include in the JAR (typicall
 
 ### 4.4 Image assets
 
-Images referenced in `<image>` elements (see §6.5) or used as icons (`rsc/icon.png`) should use formats with **alpha channel support** (e.g., PNG). Transparent backgrounds are preferred over solid white or black backgrounds, so images render cleanly on both light and dark GUI themes.
+Images used in layouts (see §6.4) or as icons (`rsc/icon.png`) should use formats with **alpha channel support** (e.g., PNG). Transparent backgrounds are preferred over solid white or black backgrounds, so images render cleanly on both light and dark GUI themes.
 
 ---
 
@@ -248,7 +248,9 @@ Child elements:
 - `<categories>` (required): category assignments (at least one).
 - `<requires>` (required): required features (may be empty).
 - `<provides>` (required): provided features (may be empty).
-- `<sections>` (optional): configuration schema — sections, properties, layouts, images.
+- `<sections>` (optional): configuration schema — sections, properties, and layouts.
+
+If `<sections>` is present, it MUST contain at least one `<section>`.
 
 The XSD schema (`chibiforge_schema.xsd`) defines the exact structure.
 
@@ -272,7 +274,7 @@ This is a **soft dependency system**: warnings inform the user of likely misconf
 
 ## 6. Configuration Schema (`<sections>`)
 
-The configuration schema defines the structure of configurable properties using sections, properties, and layouts.
+The configuration schema defines the structure of configurable content using sections, properties, and layouts. Layouts may also contain images.
 
 ### 6.1 Sections
 
@@ -280,7 +282,7 @@ The configuration schema defines the structure of configurable properties using 
 
 ```xml
 <sections>
-  <section name="Initialization Settings" expanded="false">
+  <section name="Initialization Settings" expanded="false" editable="true" visible="true">
     <description>Core initialization parameters.</description>
     <property name="do_not_init" type="bool" ... />
     <property name="vdd" type="int" ... />
@@ -296,6 +298,8 @@ Section attributes (all required):
 
 - `name`: display name (used as section title in GUIs).
 - `expanded`: `"true"` or `"false"` — initial collapsed/expanded state.
+- `editable`: `"true"`, `"false"`, or `"@cond:<xpath>"`
+- `visible`: `"true"`, `"false"`, or `"@cond:<xpath>"`
 
 Child elements:
 
@@ -331,6 +335,17 @@ Required attributes:
 - `visible`: `"true"`, `"false"`, or `"@cond:<xpath>"` — whether the field is shown in the GUI. When using `@cond:`, the XPath expression is evaluated against the live data model to dynamically control visibility.
 - `default`: default value.
 
+Property types are limited to the following set:
+
+- `bool`
+- `string`
+- `text`
+- `int`
+- `enum`
+- `list`
+
+No additional property types are supported in v1.
+
 Examples:
 
 ```xml
@@ -365,7 +380,7 @@ Type-specific optional attributes:
 - **`string`**: `string_regex` — regular expression for validation.
 - **`text`**: `text_maxsize` — maximum character count.
 - **`enum`**: `enum_of` — CSV of allowed values (e.g., `"PLL,HSI,HSE"`).
-- **`list`**: `list_columns` — CSV of property names to show in the table view, optionally followed by `:` and column width in pixels (e.g., `"name:150,mode:100,speed"`). Contains a nested `<sections>` element defining the structure of each list item.
+- **`list`**: `list_columns` — CSV of property names to show in the table view, optionally followed by `:` and column width in pixels (e.g., `"name:150,mode:100,speed"`). For `type="list"`, the nested `<sections>` element defines the schema of each list item.
 
 Property types and their GUI widgets:
 
@@ -374,7 +389,47 @@ Property types and their GUI widgets:
 - `text`: multi-line text box (monospaced, optional language highlighting). Enforce `text_maxsize` if present.
 - `int`: editable text field with numeric validation. Enforce `int_min` / `int_max`.
 - `enum`: combo box (dropdown) populated from `enum_of` (CSV or resolved `@ref:`).
-- `list`: table view with drill-down editing (see §6.6).
+- `list`: table view with drill-down editing (see §6.5).
+
+### 6.2.1 Visibility and Editability
+
+The `visible` and `editable` attributes control rendering and interaction.
+
+Valid values are:
+
+- `"true"`
+- `"false"`
+- `"@cond:<xpath>"`
+
+When using `@cond:`, the XPath expression is evaluated against the live data model.
+
+#### Effective State
+
+Visibility and editability are evaluated hierarchically.
+
+- `effectiveVisible = parentEffectiveVisible AND ownVisible`
+- `effectiveEditable = parentEffectiveEditable AND ownEditable`
+
+Consequently:
+
+- If a section is effectively not visible, all descendant elements are effectively not visible, regardless of their own `visible` values.
+- If a section is effectively not editable, all descendant elements are effectively not editable, regardless of their own `editable` values.
+
+#### Evaluation Optimization
+
+If an element is effectively not visible or not editable due to an ancestor, tools MAY skip evaluation of `@cond:` expressions within that subtree, as the effective state is already determined.
+
+Skipping evaluation is an optimization and must not affect observable behavior.
+
+### 6.2.2 Text Property Serialization
+
+Properties of `type="text"` are intended to contain source code or other free-form text that may include XML-sensitive characters (such as `<`, `>`, and `&`).
+
+When reading `chibiforge.xcfg`, tools MUST accept both XML CDATA sections and normal escaped character data as equivalent representations.
+
+When writing `chibiforge.xcfg`, tools MUST serialize values of `type="text"` using a single XML CDATA section.
+
+Tools SHOULD emit a single CDATA section per property value and avoid splitting content into multiple CDATA blocks.
 
 ### 6.3 Resource References (`@ref:`)
 
@@ -436,34 +491,19 @@ Child elements (any mix):
 - `<image>`: an image rendered in the grid cell.
 - `<empty>`: an empty visual slot (for alignment purposes).
 
-### 6.5 Images
+Constraints:
 
-Images can appear at the component level (inside `<component>`, alongside `<sections>`), inside sections, or inside layouts.
+- `<layout>` may contain only `<property>`, `<image>`, and `<empty>` elements.
+- Nested `<layout>` elements are not allowed.
+- `<section>` elements are not allowed inside `<layout>`.
 
-```xml
-<image file="rsc/block_diagram.png" align="center">
-  <text>Block diagram of the peripheral</text>
-</image>
-```
-
-Attributes (all required):
-
-- `file`: path to the image file, relative to the component container.
-- `align`: `"left"`, `"center"`, or `"right"`.
-
-Child elements:
-
-- `<text>` (required): caption or alt text for the image.
-
-Images should use formats with alpha channel support (e.g., PNG) with transparent backgrounds to render cleanly on both light and dark GUI themes (see §4.4).
-
-### 6.6 List Editing (GUI Behavior)
+### 6.5 List Editing (GUI Behavior)
 
 Properties of `type="list"` are presented as a table and edited with a drill-down pattern:
 
 - **Table view**: list items are shown as a table. Columns are determined by the `list_columns` attribute (CSV of property names with optional pixel widths).
 - **Controls**: add, remove, duplicate, reorder rows.
-- **Drill-down**: double-clicking a row opens the item's configuration form, driven by the nested `<sections>` within the list property.
+- **Drill-down**: double-clicking a row opens the item's configuration form, driven by the nested `<sections>` within the list property. For `type="list"`, the nested `<sections>` element defines the schema of each list item.
 - **Breadcrumb navigation**: the edit window displays a breadcrumb or clickable XPath at the top (e.g., `Component > Initialization Settings > pins > [3]`), allowing the user to navigate back to any parent level. Each segment is clickable.
 - **Recursive**: if a list item contains another list, the same table → drill-down → breadcrumb pattern applies recursively.
 
@@ -1376,7 +1416,10 @@ For each `<section>`:
   - Initial expanded state from `@expanded`.
   - Show `<description>` as help text.
   - Slightly indented for each nesting level.
-- Render child elements (`<property>`, `<layout>`, `<image>`) in order.
+- Evaluate `visible` and `editable` hierarchically to compute the section's effective state.
+- If a section is effectively not visible, its subtree is not rendered.
+- If a section is effectively not editable, its subtree is rendered read-only.
+- Render child elements (`<property>`, `<layout>`) in order.
 
 #### Properties
 
@@ -1386,6 +1429,7 @@ For each `<property>` within a section or layout:
 - If visible, render the appropriate widget based on type (see §6.2).
 - Evaluate `editable` to determine whether the field is interactive. If the value starts with `@cond:`, evaluate the XPath expression. Non-editable fields are rendered as read-only.
 - `@cond:` expressions are re-evaluated whenever the data model changes (i.e., when the user edits any value), enabling reactive UI behavior.
+- If an ancestor section is effectively not visible or not editable, tools MAY skip evaluating `@cond:` expressions in that subtree.
 
 #### Layouts
 
@@ -1395,13 +1439,6 @@ For `<layout columns="N" align="...">`:
 - `<empty/>` elements produce blank cells for alignment.
 - `<image>` elements render the image with caption in the grid cell.
 
-#### Images
-
-For `<image>`:
-
-- Display the image referenced by `@file` (relative to the component container).
-- Show `<text>` as a caption.
-- Apply `@align` for positioning.
 
 #### Multi-target toggle
 
@@ -1414,7 +1451,7 @@ Each property widget should offer a mechanism (e.g., a context menu, toggle icon
 
 #### Lists
 
-List properties follow the drill-down editing pattern described in §6.6: table view → double-click to enter item → breadcrumb navigation to return.
+List properties follow the drill-down editing pattern described in §6.5: table view → double-click to enter item → breadcrumb navigation to return.
 
 ---
 
