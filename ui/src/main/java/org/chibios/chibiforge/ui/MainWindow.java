@@ -128,6 +128,8 @@ public class MainWindow {
 
         // Left panel — component palette
         palette = new ComponentPalette(model);
+        palette.setOnComponentActivated(this::handlePaletteActivation);
+        palette.setOnSelectionChanged(this::handlePaletteSelection);
 
         // Breadcrumb
         breadcrumb = new BreadcrumbBar();
@@ -482,7 +484,10 @@ public class MainWindow {
      * Add the component currently selected in the palette to the configuration.
      */
     private void addSelectedComponent() {
-        String compId = palette.getSelectedComponentId();
+        addSelectedComponent(palette.getSelectedComponentId());
+    }
+
+    private void addSelectedComponent(String compId) {
         if (compId == null) return;
 
         // Check if already configured
@@ -548,6 +553,30 @@ public class MainWindow {
             }
         } catch (Exception ignored) {}
         return componentId;
+    }
+
+    private void handlePaletteActivation(String componentId) {
+        if (componentId == null) {
+            return;
+        }
+        if (model.getConfiguredComponentIds().contains(componentId)) {
+            showConfigurationForm(componentId);
+        } else {
+            addSelectedComponent(componentId);
+        }
+    }
+
+    private void handlePaletteSelection(String componentId) {
+        if (componentId == null || model.getRegistry() == null) {
+            inspector.showConfigurationHelp();
+            return;
+        }
+        try {
+            ComponentDefinition def = model.getRegistry().lookup(componentId).loadDefinition();
+            inspector.showComponentHelp(def);
+        } catch (Exception ignored) {
+            inspector.showConfigurationHelp();
+        }
     }
 
     private Element findOrCreateComponentsElement() {

@@ -19,7 +19,12 @@
 package org.chibios.chibiforge.ui.palette;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import org.chibios.chibiforge.component.ComponentDefinition;
@@ -27,7 +32,9 @@ import org.chibios.chibiforge.container.ComponentContainer;
 import org.chibios.chibiforge.registry.ComponentRegistry;
 import org.chibios.chibiforge.ui.model.AppModel;
 
+import java.io.InputStream;
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * Left panel showing all available components grouped by category.
@@ -43,6 +50,10 @@ public class ComponentPalette {
 
     // Maps display text back to component ID
     private final Map<TreeItem<String>, String> itemToComponentId = new HashMap<>();
+    private final Map<String, Boolean> componentConfigured = new HashMap<>();
+    private final Map<String, Image> componentIcons = new HashMap<>();
+    private Consumer<String> onComponentActivated;
+    private Consumer<String> onSelectionChanged;
 
     public ComponentPalette(AppModel model) {
         this.model = model;
@@ -59,6 +70,20 @@ public class ComponentPalette {
         treeView = new TreeView<>();
         treeView.setShowRoot(false);
         treeView.setRoot(new TreeItem<>("Components"));
+        treeView.setCellFactory(view -> new ComponentTreeCell());
+        treeView.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
+            if (onSelectionChanged != null) {
+                onSelectionChanged.accept(selected != null ? itemToComponentId.get(selected) : null);
+            }
+        });
+        treeView.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2) {
+                String componentId = getSelectedComponentId();
+                if (componentId != null && onComponentActivated != null) {
+                    onComponentActivated.accept(componentId);
+                }
+            }
+        });
         VBox.setVgrow(treeView, Priority.ALWAYS);
 
         showHidden = new CheckBox("Show hidden");
@@ -78,6 +103,7 @@ public class ComponentPalette {
         TreeItem<String> treeRoot = new TreeItem<>("Components");
         treeRoot.setExpanded(true);
         itemToComponentId.clear();
+        componentConfigured.clear();
 
         ComponentRegistry registry = model.getRegistry();
         if (registry == null) {
@@ -131,10 +157,12 @@ public class ComponentPalette {
                 try {
                     ComponentDefinition def = container.loadDefinition();
                     boolean isConfigured = configured.contains(def.getId());
-                    String label = (isConfigured ? "\u2713 " : "") + def.getName();
+                    String label = def.getName();
                     TreeItem<String> item = new TreeItem<>(label);
                     parent.getChildren().add(item);
                     itemToComponentId.put(item, def.getId());
+                    componentConfigured.put(def.getId(), isConfigured);
+                    componentIcons.computeIfAbsent(def.getId(), ignored -> loadComponentIcon(container));
                 } catch (Exception ignored) {}
             }
         }
@@ -168,6 +196,80 @@ public class ComponentPalette {
     public String getSelectedComponentId() {
         TreeItem<String> selected = treeView.getSelectionModel().getSelectedItem();
         return selected != null ? itemToComponentId.get(selected) : null;
+    }
+
+    public void setOnComponentActivated(Consumer<String> handler) {
+        this.onComponentActivated = handler;
+    }
+
+    public void setOnSelectionChanged(Consumer<String> handler) {
+        this.onSelectionChanged = handler;
+    }
+
+    private Image loadComponentIcon(ComponentContainer container) {
+        try {
+            if (container.getComponentContent().exists("rsc/icon.png")) {
+                try (InputStream is = container.getComponentContent().open("rsc/icon.png")) {
+                    return new Image(is);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private Node createFallbackIcon(boolean configured) {
+        Label icon = new Label(configured ? "\u2713" : "\u2699");
+        icon.setMinWidth(16);
+        icon.setAlignment(Pos.CENTER);
+        icon.setStyle(configured ? "-fx-text-fill: #4a90d9;" : "-fx-text-fill: #777777;");
+        return icon;
+    }
+
+    private final class ComponentTreeCell extends TreeCell<String> {
+        @Override
+        protected void updateItem(String item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || item == null) {
+                setText(null);
+                setGraphic(null);
+                setStyle("");
+                return;
+            }
+
+            TreeItem<String> treeItem = getTreeItem();
+            String componentId = treeItem != null ? itemToComponentId.get(treeItem) : null;
+            if (componentId == null) {
+                setText(item);
+                setGraphic(null);
+                setStyle("");
+                return;
+            }
+
+            boolean configured = componentConfigured.getOrDefault(componentId, false);
+            Node iconNode;
+            Image icon = componentIcons.get(componentId);
+            if (icon != null && !icon.isError()) {
+                ImageView view = new ImageView(icon);
+                view.setFitWidth(16);
+                view.setFitHeight(16);
+                view.setPreserveRatio(true);
+                iconNode = view;
+            } else {
+                iconNode = createFallbackIcon(configured);
+            }
+
+            Label textLabel = new Label(item);
+            if (configured) {
+                textLabel.setStyle("-fx-text-fill: #777777;");
+            }
+            HBox graphic = new HBox(6, iconNode, textLabel);
+            graphic.setAlignment(Pos.CENTER_LEFT);
+
+            setText(null);
+            setGraphic(graphic);
+            setStyle(configured ? "-fx-opacity: 0.8;" : "");
+        }
     }
 
     public VBox getRoot() { return root; }
