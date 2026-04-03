@@ -19,6 +19,7 @@
 package org.chibios.chibiforge.ui.center;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
@@ -39,6 +40,7 @@ public class BreadcrumbBar extends HBox {
     public BreadcrumbBar() {
         setSpacing(2);
         setPadding(new Insets(6, 8, 6, 8));
+        setAlignment(Pos.CENTER_LEFT);
         getStyleClass().add("breadcrumb-bar");
         setPath("Components");
     }

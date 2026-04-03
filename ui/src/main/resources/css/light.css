@@ -59,6 +59,11 @@
     -fx-font-weight: bold;
 }
 
+.breadcrumb-link {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}
+
 .breadcrumb-separator {
     -fx-text-fill: #999999;
 }
