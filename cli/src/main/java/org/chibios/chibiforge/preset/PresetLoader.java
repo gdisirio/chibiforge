@@ -122,29 +122,45 @@ public class PresetLoader {
         PropertyDef.Type type = PropertyDef.Type.fromString(propertyElement.getAttribute("type"));
 
         Element valueElement = getOptionalDirectChild(propertyElement, "value");
-        Element sectionsElement = getOptionalDirectChild(propertyElement, "sections");
+        Element itemsElement = getOptionalDirectChild(propertyElement, "items");
 
         if (type == PropertyDef.Type.LIST) {
-            if (sectionsElement == null) {
+            if (itemsElement == null) {
                 throw new IllegalArgumentException(
-                        "Preset list property '" + name + "' must contain nested <sections>");
+                        "Preset list property '" + name + "' must contain nested <items>");
             }
             if (valueElement != null) {
                 throw new IllegalArgumentException(
                         "Preset list property '" + name + "' must not contain <value>");
             }
-            return new PresetProperty(name, type, null, parseSections(sectionsElement));
+            return new PresetProperty(name, type, null, parseItems(itemsElement));
         }
 
         if (valueElement == null) {
             throw new IllegalArgumentException(
                     "Preset scalar property '" + name + "' must contain <value>");
         }
-        if (sectionsElement != null) {
+        if (itemsElement != null) {
             throw new IllegalArgumentException(
-                    "Preset scalar property '" + name + "' must not contain nested <sections>");
+                    "Preset scalar property '" + name + "' must not contain nested <items>");
         }
         return new PresetProperty(name, type, valueElement.getTextContent(), List.of());
+    }
+
+    private List<PresetItem> parseItems(Element itemsElement) {
+        List<PresetItem> items = new ArrayList<>();
+        for (Element itemElement : getDirectChildElements(itemsElement, "item")) {
+            items.add(parseItem(itemElement));
+        }
+        return items;
+    }
+
+    private PresetItem parseItem(Element itemElement) {
+        List<PresetSection> sections = new ArrayList<>();
+        for (Element sectionsElement : getDirectChildElements(itemElement, "sections")) {
+            sections.addAll(parseSections(sectionsElement));
+        }
+        return new PresetItem(sections);
     }
 
     private Element getRequiredDirectChild(Element parent, String name) {

@@ -49,13 +49,38 @@ class PresetLoaderTest {
 Line 2]]></value>
                       </property>
                       <property name="Pins" type="list">
-                        <sections>
-                          <section name="Pin Entry">
-                            <property name="Port" type="string">
-                              <value>GPIOA</value>
-                            </property>
-                          </section>
-                        </sections>
+                        <items>
+                          <item>
+                            <sections>
+                              <section name="Pin Details">
+                                <property name="name" type="string">
+                                  <value>PA0</value>
+                                </property>
+                                <property name="mode" type="enum">
+                                  <value>INPUT</value>
+                                </property>
+                                <property name="speed" type="enum">
+                                  <value>LOW</value>
+                                </property>
+                              </section>
+                            </sections>
+                          </item>
+                          <item>
+                            <sections>
+                              <section name="Pin Details">
+                                <property name="name" type="string">
+                                  <value>PA1</value>
+                                </property>
+                                <property name="mode" type="enum">
+                                  <value>OUTPUT</value>
+                                </property>
+                                <property name="speed" type="enum">
+                                  <value>HIGH</value>
+                                </property>
+                              </section>
+                            </sections>
+                          </item>
+                        </items>
                       </property>
                     </section>
                   </sections>
@@ -75,7 +100,7 @@ Line 2]]></value>
         assertThat(scalar.name()).isEqualTo("Board name");
         assertThat(scalar.type()).isEqualTo(PropertyDef.Type.STRING);
         assertThat(scalar.value()).isEqualTo("STM32F4 Discovery");
-        assertThat(scalar.sections()).isEmpty();
+        assertThat(scalar.items()).isEmpty();
 
         PresetProperty text = section.properties().get(1);
         assertThat(text.type()).isEqualTo(PropertyDef.Type.TEXT);
@@ -84,10 +109,12 @@ Line 2]]></value>
         PresetProperty list = section.properties().get(2);
         assertThat(list.type()).isEqualTo(PropertyDef.Type.LIST);
         assertThat(list.value()).isNull();
-        assertThat(list.sections()).hasSize(1);
-        assertThat(list.sections().get(0).properties()).singleElement()
-                .extracting(PresetProperty::name)
-                .isEqualTo("Port");
+        assertThat(list.items()).hasSize(2);
+        assertThat(list.items().get(0).sections()).singleElement().satisfies(itemSection -> {
+            assertThat(itemSection.name()).isEqualTo("Pin Details");
+            assertThat(itemSection.properties()).extracting(PresetProperty::name)
+                    .containsExactly("name", "mode", "speed");
+        });
     }
 
     @Test
@@ -148,7 +175,31 @@ Line 2]]></value>
                 </preset>
                 """))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Preset list property 'Pins' must contain nested <sections>");
+                .hasMessageContaining("Preset list property 'Pins' must contain nested <items>");
+    }
+
+    @Test
+    void acceptsEmptyStructuredList() throws Exception {
+        PresetDefinition preset = load("""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <preset xmlns="http://www.example.org/chibiforge_preset/"
+                        name="Empty Pins"
+                        id="test.component"
+                        version="1.0.0">
+                  <sections>
+                    <section name="Board Settings">
+                      <property name="Pins" type="list">
+                        <items/>
+                      </property>
+                    </section>
+                  </sections>
+                </preset>
+                """);
+
+        PresetProperty list = preset.sections().get(0).properties().get(0);
+        assertThat(list.type()).isEqualTo(PropertyDef.Type.LIST);
+        assertThat(list.items()).isEmpty();
+        assertThat(list.hasItems()).isTrue();
     }
 
     private PresetDefinition load(String xml) throws Exception {

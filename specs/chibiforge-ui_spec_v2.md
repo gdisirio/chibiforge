@@ -857,6 +857,7 @@ Applying a preset SHALL:
 * leave unspecified properties unchanged
 * NOT modify the preset file
 * NOT create any persistent reference to the preset
+* for `<property type="list">`, replace the entire list using the structured `<items>/<item>/<sections>` preset representation
 
 If the component contains data, the UI SHOULD request confirmation.
 

@@ -23,9 +23,9 @@ import org.chibios.chibiforge.component.PropertyDef;
 import java.util.List;
 
 /**
- * A preset property entry, either scalar-valued or list-nested.
+ * A preset property entry, either scalar-valued or list-valued.
  */
-public record PresetProperty(String name, PropertyDef.Type type, String value, List<PresetSection> sections) {
+public record PresetProperty(String name, PropertyDef.Type type, String value, List<PresetItem> items) {
 
     public PresetProperty {
         if (name == null || name.isBlank()) {
@@ -34,13 +34,22 @@ public record PresetProperty(String name, PropertyDef.Type type, String value, L
         if (type == null) {
             throw new IllegalArgumentException("Preset property type must not be null");
         }
-        sections = sections != null ? List.copyOf(sections) : List.of();
+        items = items != null ? List.copyOf(items) : List.of();
 
-        boolean hasScalarValue = value != null;
-        boolean hasNestedSections = !sections.isEmpty();
-        if (hasScalarValue == hasNestedSections) {
-            throw new IllegalArgumentException(
-                    "Preset property '" + name + "' must define either a scalar value or nested sections");
+        if (type == PropertyDef.Type.LIST) {
+            if (value != null) {
+                throw new IllegalArgumentException(
+                        "Preset list property '" + name + "' must not define a scalar value");
+            }
+        } else {
+            if (value == null) {
+                throw new IllegalArgumentException(
+                        "Preset scalar property '" + name + "' must define a scalar value");
+            }
+            if (!items.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Preset scalar property '" + name + "' must not define list items");
+            }
         }
     }
 
@@ -48,7 +57,7 @@ public record PresetProperty(String name, PropertyDef.Type type, String value, L
         return value != null;
     }
 
-    public boolean hasNestedSections() {
-        return !sections.isEmpty();
+    public boolean hasItems() {
+        return type == PropertyDef.Type.LIST;
     }
 }

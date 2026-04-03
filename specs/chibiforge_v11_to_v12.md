@@ -120,6 +120,8 @@ A preset file SHALL contain:
   * `id`
   * `version`
 * a `<sections>` payload matching the preset XSD structure
+* for `<property type="list">`, an `<items>` payload containing zero or more `<item>` elements
+* each list `<item>` SHALL contain one or more `<sections>` wrappers, each containing schema-named `<section>` / `<property>` entries
 * no target declarations
 * no feature definitions
 
@@ -266,7 +268,6 @@ Existing board components:
 
 The following are deferred to full specification update:
 
-* preset XML schema (XSD)
 * preset metadata in `schema.xml`
 * preset discovery rules (implicit vs declared)
 * automated migration of legacy board components
@@ -359,6 +360,14 @@ For `<property type="list">`:
 * If the property is present in the preset, the entire list SHALL be replaced.
 * No element-by-element merge SHALL be performed.
 * If the property is not present in the preset, the existing list SHALL remain unchanged.
+* Preset list values SHALL use the structured XSD form:
+
+  * `<items>`
+  * `<item>`
+  * `<sections>`
+  * nested schema-named `<section>` / `<property>` entries
+* Within each replacement item, nested `<section @name>` and `<property @name>` matching SHALL follow the list property's nested schema.
+* Unspecified nested item properties SHALL be initialized using the component schema default values.
 
 ---
 
@@ -372,6 +381,12 @@ For each matched `<property>`:
 * Otherwise, the `default` attribute SHALL be replaced.
 
 Tools MAY provide an option to create `<targetValue>` elements for properties that currently inherit from `default`.
+
+Current implementation note:
+
+* target-local replacement is implemented for scalar properties
+* `<property type="list">` replacement currently applies only to single-target list values
+* multi-target list replacement is not yet supported because the `.xcfg` format does not currently define a structured target-specific encoding for list items analogous to scalar `<targetValue>` entries
 
 ---
 
