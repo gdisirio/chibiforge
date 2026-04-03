@@ -40,7 +40,7 @@
 
   <complexType name="itemType">
     <sequence>
-      <element name="sections" type="tns:sectionsType" maxOccurs="unbounded" minOccurs="1"></element>
+      <element name="sections" type="tns:sectionsType" maxOccurs="1" minOccurs="1"></element>
     </sequence>
   </complexType>
 
