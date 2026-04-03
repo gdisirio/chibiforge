@@ -44,7 +44,7 @@ This file is delivered to the configuration root via `cfg_root_wo/` (write-once,
 
 ### 2.4 Initial `main.c`
 
-A minimal, compilable `main.c` scaffold delivered write-once (`cfg_root_wo/` or `source_root_wo/`). It serves as the entry point the startup code calls. The intent is "project bootstrap" — the user is expected to modify it freely after generation. The platform component generates it exactly once and never overwrites it.
+A minimal, compilable `main.c` scaffold delivered write-once (`cfg_root_wo/` or `_root_wo/`). It serves as the entry point the startup code calls. The intent is "project bootstrap" — the user is expected to modify it freely after generation. The platform component generates it exactly once and never overwrites it.
 
 ### 2.5 CMSIS / device headers
 
@@ -236,7 +236,7 @@ component/
       stm32g474xx.h
       ...
 
-  source_root_wo/             # Static files -> config root, write-once
+  _root_wo/             # Static files -> config root, write-once
     (none typical)
 
   resources/                  # Resource XML/JSON used in schema and templates
@@ -249,7 +249,7 @@ Key conventions:
 - **Linker scripts** are placed under `source/linker/` as static files when they are fixed per-family. If the user must select a device variant (affecting flash/RAM sizes), the linker script is a template under `cfg_root_wo/` that uses a `@ref:` to the selected device's memory map.
 - **CMSIS headers** are always static (`source/`). They are never templated.
 - **The device catalog** (`resources/device_catalog.xml`) drives the device-variant property in the component's configuration schema, allowing the user to select the exact device (e.g. `STM32G474VE`). The generator uses this selection to emit correct linker region sizes and compile-time defines.
-- **`main.c`** is write-once (`cfg_root_wo/` or `source_root_wo/`). The platform generates it once as a bootstrap scaffold; it is the user's file thereafter.
+- **`main.c`** is write-once (`cfg_root_wo/` or `_root_wo/`). The platform generates it once as a bootstrap scaffold; it is the user's file thereafter.
 
 ---
 

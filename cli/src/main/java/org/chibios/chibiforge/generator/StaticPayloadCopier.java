@@ -38,8 +38,8 @@ import java.util.Set;
  *
  * source/            -> generated/<normalizedId>/  (always overwrite)
  * build/             -> generated/<normalizedId>/build/ (always overwrite)
- * source_root_wa/    -> configRoot/                (always overwrite)
- * source_root_wo/    -> configRoot/                (write-once)
+ * _root_wa/    -> configRoot/                (always overwrite)
+ * _root_wo/    -> configRoot/                (write-once)
  * any other unknown directory under component/ is copied statically to
  * generated/<normalizedId>/<dir>/ (always overwrite)
  */
@@ -51,6 +51,8 @@ public class StaticPayloadCopier {
             "cfg_root_wa",
             "cfg_root_wo",
             "source",
+            "_root_wa",
+            "_root_wo",
             "source_root_wa",
             "source_root_wo",
             "resources",
@@ -67,15 +69,15 @@ public class StaticPayloadCopier {
                 ctx.getGeneratedRoot().resolve(normalizedId),
                 "source/", true, ctx, report);
 
-        // source_root_wa/ -> configRoot/ (always)
-        copyDirectory(content, "source_root_wa/",
+        // _root_wa/ -> configRoot/ (always)
+        copyDirectory(content, "_root_wa/",
                 ctx.getConfigRoot(),
-                "source_root_wa/", true, ctx, report);
+                "_root_wa/", true, ctx, report);
 
-        // source_root_wo/ -> configRoot/ (write-once)
-        copyDirectory(content, "source_root_wo/",
+        // _root_wo/ -> configRoot/ (write-once)
+        copyDirectory(content, "_root_wo/",
                 ctx.getConfigRoot(),
-                "source_root_wo/", false, ctx, report);
+                "_root_wo/", false, ctx, report);
 
         copyGenericGeneratedDirectories(content,
                 ctx.getGeneratedRoot().resolve(normalizedId),

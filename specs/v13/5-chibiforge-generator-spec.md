@@ -93,10 +93,10 @@ Files under such a directory are copied to:
 
 ---
 
-### 4.4 source_root_wa/
+### 4.4 _root_wa/
 
 ```text id="mucy0o"
-component/source_root_wa/
+component/_root_wa/
 ```
 
 → project root
@@ -105,10 +105,10 @@ component/source_root_wa/
 
 ---
 
-### 4.5 source_root_wo/
+### 4.5 _root_wo/
 
 ```text id="2slvzg"
-component/source_root_wo/
+component/_root_wo/
 ```
 
 → project root

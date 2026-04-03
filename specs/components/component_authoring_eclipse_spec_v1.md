@@ -182,8 +182,8 @@ org.chibios.chibiforge.components.<subsystem>.<name>/   # Project root, named af
     cfg_root_wa/                      # FreeMarker templates → config root (always)
     cfg_root_wo/                      # FreeMarker templates → config root (once)
     source/                           # Static sources → generated/
-    source_root_wa/                   # Static sources → config root (always)
-    source_root_wo/                   # Static sources → config root (once)
+    _root_wa/                         # Static payload → config root (always)
+    _root_wo/                         # Static payload → config root (once)
     resources/                        # Resource files (XML, JSON)
     other/                            # Optional extras (docs, notes)
 

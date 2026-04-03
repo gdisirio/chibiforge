@@ -80,8 +80,8 @@ component/
 
   source/
   build/
-  source_root_wa/
-  source_root_wo/
+  _root_wa/
+  _root_wo/
 
   resources/
 ```
@@ -171,22 +171,22 @@ Reserved directories with defined semantics include:
 * `cfg_root_wo/`
 * `source/`
 * `build/`
-* `source_root_wa/`
-* `source_root_wo/`
+* `_root_wa/`
+* `_root_wo/`
 * `resources/`
 * `rsc/`
 * `presets/`
 
 ---
 
-### 5.8 source_root_wa/
+### 5.8 _root_wa/
 
 * Static files copied to project root
 * Always overwritten
 
 ---
 
-### 5.9 source_root_wo/
+### 5.9 _root_wo/
 
 * Static files copied to project root
 * Written only if file does not exist

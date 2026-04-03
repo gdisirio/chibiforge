@@ -428,7 +428,7 @@ Shows the configuration root's filesystem as a tree, color-coded by how ChibiFor
 **Color coding:**
 
 - **Red ("clean")**: files inside `generated/`. These are deleted by the Clean action.
-- **Amber ("managed")**: root-scope files produced by `source_root_wa/`, `cfg_root_wa/`, or `cfg_root_wo/`/`source_root_wo/`. These are overwritten (wa) or initially created (wo) by Generate.
+- **Amber ("managed")**: root-scope files produced by `_root_wa/`, `cfg_root_wa/`, or `cfg_root_wo/`/`_root_wo/`. These are overwritten (wa) or initially created (wo) by Generate.
 - **Grey ("user")**: files not managed by ChibiForge. Untouched by Generate or Clean.
 
 **Badges:**

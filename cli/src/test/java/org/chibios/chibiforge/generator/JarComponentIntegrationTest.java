@@ -90,12 +90,12 @@ class JarComponentIntegrationTest {
                     void jar_init(void) {}
                     """);
 
-            // component/source_root_wa/jar_always.txt
-            addEntry(jar, "component/source_root_wa/jar_always.txt",
+            // component/_root_wa/jar_always.txt
+            addEntry(jar, "component/_root_wa/jar_always.txt",
                     "JAR always-overwrite\n");
 
-            // component/source_root_wo/jar_once.txt
-            addEntry(jar, "component/source_root_wo/jar_once.txt",
+            // component/_root_wo/jar_once.txt
+            addEntry(jar, "component/_root_wo/jar_once.txt",
                     "JAR write-once\n");
         }
     }
@@ -139,11 +139,11 @@ class JarComponentIntegrationTest {
         assertThat(staticFile).exists();
         assertThat(Files.readString(staticFile)).contains("jar_init");
 
-        // source_root_wa
+        // _root_wa
         Path always = configRoot.resolve("jar_always.txt");
         assertThat(always).exists();
 
-        // source_root_wo
+        // _root_wo
         Path once = configRoot.resolve("jar_once.txt");
         assertThat(once).exists();
 

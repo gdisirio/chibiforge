@@ -71,12 +71,12 @@ class GeneratorEngineIntegrationTest {
         assertThat(staticFile).exists();
         assertThat(Files.readString(staticFile)).contains("void hello(void)");
 
-        // 2. source_root_wa file copied to config root (always)
+        // 2. _root_wa file copied to config root (always)
         Path alwaysFile = configRoot.resolve("Makefile.inc");
         assertThat(alwaysFile).exists();
         assertThat(Files.readString(alwaysFile)).contains("HELLO_SRC");
 
-        // 3. source_root_wo file copied to config root (write-once)
+        // 3. _root_wo file copied to config root (write-once)
         Path onceFile = configRoot.resolve("main.c");
         assertThat(onceFile).exists();
         assertThat(Files.readString(onceFile)).contains("hello()");

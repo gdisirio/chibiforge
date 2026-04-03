@@ -128,10 +128,10 @@ Filesystem or inside a plugin JAR:
       hal_ll.c
       hal_dma.c
 
-    source_root_wa/            # Static root-scope, always written
+    _root_wa/            # Static root-scope, always written
       ldscripts/memory.ld
 
-    source_root_wo/            # Static root-scope, write-once
+    _root_wo/            # Static root-scope, write-once
       src/main.c
       Makefile
 
@@ -703,14 +703,14 @@ Static payload directories use conventions to determine where files are copied. 
 
 - Semantics: always overwritten on generation.
 
-#### 8.1.2 `component/source_root_wa/` → root-scope, always
+#### 8.1.2 `component/_root_wa/` → root-scope, always
 
-- `component/source_root_wa/<relativePath>` → `<configurationRoot>/<relativePath>`.
+- `component/_root_wa/<relativePath>` → `<configurationRoot>/<relativePath>`.
 - Semantics: always overwritten on generation.
 
-#### 8.1.3 `component/source_root_wo/` → root-scope, once
+#### 8.1.3 `component/_root_wo/` → root-scope, once
 
-- `component/source_root_wo/<relativePath>` → `<configurationRoot>/<relativePath>`.
+- `component/_root_wo/<relativePath>` → `<configurationRoot>/<relativePath>`.
 - Behavior:
   - If target file exists: do not overwrite.
   - If not: copy file.
@@ -728,7 +728,7 @@ Templates are processed by **FMPP** (FreeMarker-based File PreProcessor). The ou
 | `component/cfg_root_wa/` | configuration root | always |
 | `component/cfg_root_wo/` | configuration root | write-once |
 
-This mirrors the `source*` convention: `cfg/` is to `source/` as `cfg_root_wa/` is to `source_root_wa/`, and `cfg_root_wo/` is to `source_root_wo/`.
+This mirrors the `source*` convention: `cfg/` is to `source/` as `cfg_root_wa/` is to `_root_wa/`, and `cfg_root_wo/` is to `_root_wo/`.
 
 #### 8.2.1 `component/cfg/` → `generated/`
 
@@ -820,8 +820,8 @@ Resource sets are declared in `schema.xml`:
 | Directory | Type | Output | Policy |
 |---|---|---|---|
 | `source/` | static | `generated/<normalizedId>/` | always |
-| `source_root_wa/` | static | configuration root | always |
-| `source_root_wo/` | static | configuration root | write-once |
+| `_root_wa/` | static | configuration root | always |
+| `_root_wo/` | static | configuration root | write-once |
 | `cfg/` | template | `generated/` | always |
 | `cfg_root_wa/` | template | configuration root | always |
 | `cfg_root_wo/` | template | configuration root | write-once |
@@ -1027,7 +1027,7 @@ The generator engine (used by CLI and other tools) performs:
         - Resolve `@ref:` expressions in schema property attributes.
 
      c. **Process static payload**:
-        - Copy files from `source/`, `source_root_wa/`, and `source_root_wo/` per conventions (see §8.1).
+        - Copy files from `source/`, `_root_wa/`, and `_root_wo/` per conventions (see §8.1).
 
      d. **Process templates via FMPP**:
         - Process templates from `cfg/` with `generated/` as output directory.
@@ -1519,8 +1519,8 @@ COMPONENTS_ROOT/
       cfg_root_wa/
       cfg_root_wo/
       source/
-      source_root_wa/
-      source_root_wo/
+      _root_wa/
+      _root_wo/
       resources/
         ...
     rsc/ (optional)
@@ -1545,8 +1545,8 @@ component/
   cfg_root_wa/
   cfg_root_wo/
   source/
-  source_root_wa/
-  source_root_wo/
+  _root_wa/
+  _root_wo/
   resources/
     ...
 plugin.xml
