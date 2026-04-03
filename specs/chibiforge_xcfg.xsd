@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:tns="http://chibiforge/schema/config"
+  targetNamespace="http://chibiforge/schema/config"
+  elementFormDefault="qualified">
+    <element name="chibiforgeConfiguration" type="tns:chibiforgeConfigurationType"></element>
+    
+    <complexType name="chibiforgeConfigurationType">
+      <sequence>
+        <element name="targets" type="tns:targetsType" maxOccurs="1"
+          minOccurs="0">
+        </element>
+        <element name="components" type="tns:componentsType" maxOccurs="1" minOccurs="1"></element>
+      </sequence>
+    </complexType>
+
+    <complexType name="targetsType">
+      <sequence>
+        <element name="target" type="tns:targetType" maxOccurs="unbounded" minOccurs="0"></element>
+      </sequence>
+    </complexType>
+
+    <complexType name="targetType">
+      <attribute name="id" use="required">
+        <simpleType>
+          <restriction base="string">
+            <minLength value="1"></minLength>
+          </restriction>
+        </simpleType>
+      </attribute>
+    </complexType>
+
+    <complexType name="componentsType">
+      <sequence>
+        <element name="component" type="tns:componentType" maxOccurs="unbounded"
+          minOccurs="0">
+        </element>
+      </sequence>
+    </complexType>
+
+    <complexType name="componentType">
+        <sequence>
+          <any></any>
+        </sequence>
+        <attribute name="id" use="required">
+        <simpleType>
+          <restriction base="string">
+            <minLength value="1"></minLength>
+          </restriction>
+        </simpleType>
+      </attribute>
+      <attribute name="version" use="required">
+        <simpleType>
+          <restriction base="string">
+            <pattern
+              value="(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)">
+            </pattern>
+          </restriction>
+        </simpleType>
+      </attribute>
+    </complexType>
+</schema>
