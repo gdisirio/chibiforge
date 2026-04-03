@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -89,6 +90,54 @@ class ComponentRegistryTest {
 
         assertThat(content.exists("schema.xml")).isTrue();
         assertThat(content.exists("nonexistent.xml")).isFalse();
+    }
+
+    @Test
+    void filesystemContainerListsBundledPresets(@TempDir Path tempDir) throws Exception {
+        createComponent(tempDir, "test.component", "Preset Fixture");
+        Path presetsDir = tempDir.resolve("test.component").resolve("component").resolve("presets");
+        Files.createDirectories(presetsDir.resolve("boards"));
+        Files.writeString(presetsDir.resolve("default.xml"), "<preset/>", StandardCharsets.UTF_8);
+        Files.writeString(presetsDir.resolve("boards/nucleo.xml"), "<preset/>", StandardCharsets.UTF_8);
+
+        ComponentRegistry registry = ComponentRegistry.fromFilesystem(tempDir);
+        ComponentContainer container = registry.lookup("test.component");
+
+        assertThat(container.listBundledPresets())
+                .containsExactly("boards/nucleo.xml", "default.xml");
+        try (InputStream input = container.openBundledPreset("boards/nucleo.xml")) {
+            assertThat(new String(input.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("<preset/>");
+        }
+    }
+
+    @Test
+    void jarContainerListsBundledPresets(@TempDir Path tempDir) throws Exception {
+        createPluginJar(tempDir.resolve("test.component_1.0.0.jar"),
+                "test.component", "test.component", "1.0.0",
+                List.of(
+                        new JarFileEntry("component/presets/default.xml", "<preset/>"),
+                        new JarFileEntry("component/presets/boards/discovery.xml", "<preset/>")));
+
+        ComponentRegistry registry = ComponentRegistry.fromPlugins(tempDir);
+        ComponentContainer container = registry.lookup("test.component");
+
+        assertThat(container.listBundledPresets())
+                .containsExactly("boards/discovery.xml", "default.xml");
+        try (InputStream input = container.openBundledPreset("default.xml")) {
+            assertThat(new String(input.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("<preset/>");
+        }
+    }
+
+    @Test
+    void bundledPresetOpeningRejectsPathTraversal(@TempDir Path tempDir) throws Exception {
+        createComponent(tempDir, "test.component", "Preset Fixture");
+
+        ComponentRegistry registry = ComponentRegistry.fromFilesystem(tempDir);
+        ComponentContainer container = registry.lookup("test.component");
+
+        assertThatThrownBy(() -> container.openBundledPreset("../secret.xml"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("component/presets/");
     }
 
     @Test
@@ -167,6 +216,11 @@ class ComponentRegistryTest {
     }
 
     private void createPluginJar(Path jarPath, String bundleSymbolicName, String componentId, String version) throws IOException {
+        createPluginJar(jarPath, bundleSymbolicName, componentId, version, List.of());
+    }
+
+    private void createPluginJar(Path jarPath, String bundleSymbolicName, String componentId,
+                                 String version, List<JarFileEntry> extraEntries) throws IOException {
         Files.createDirectories(jarPath.getParent());
         Manifest manifest = new Manifest();
         manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
@@ -199,7 +253,13 @@ class ComponentRegistryTest {
                       </sections>
                     </component>
                     """.formatted(componentId, version));
+            for (JarFileEntry entry : extraEntries) {
+                addEntry(jar, entry.path(), entry.content());
+            }
         }
+    }
+
+    private record JarFileEntry(String path, String content) {
     }
 
     private void addEntry(JarOutputStream jar, String name, String content) throws IOException {

@@ -37,6 +37,11 @@ import org.chibios.chibiforge.config.ConfigLoader;
 import org.chibios.chibiforge.container.ComponentContainer;
 import org.chibios.chibiforge.datamodel.IdNormalizer;
 import org.chibios.chibiforge.feature.FeatureChecker;
+import org.chibios.chibiforge.preset.PresetApplier;
+import org.chibios.chibiforge.preset.PresetApplyReport;
+import org.chibios.chibiforge.preset.PresetDefinition;
+import org.chibios.chibiforge.preset.PresetLoader;
+import org.chibios.chibiforge.preset.PresetWriter;
 import org.chibios.chibiforge.registry.ComponentRegistry;
 import org.chibios.chibiforge.ui.center.BreadcrumbBar;
 import org.chibios.chibiforge.ui.center.ComponentsView;
@@ -57,6 +62,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 import java.io.File;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -79,6 +85,7 @@ public class MainWindow {
     private static final String DEFAULT_SCHEMA_VERSION = "1.0";
     private static final int MAX_RECENT_FILES = 10;
     private static final String RECENT_FILES_KEY = "recentFiles";
+    private static final String OTHER_PRESET_OPTION = "Other...";
 
     private final Stage stage;
     private final AppModel model;
@@ -103,6 +110,8 @@ public class MainWindow {
     private Button generateToolButton;
     private Button cleanToolButton;
     private Button manageTargetsButton;
+    private MenuItem loadPresetMenuItem;
+    private MenuItem savePresetAsMenuItem;
 
     // Panels
     private final ComponentPalette palette;
@@ -118,6 +127,13 @@ public class MainWindow {
     private final Label statusLeft;
     private final Label statusRight;
     private final List<Path> recentFiles = new ArrayList<>();
+    private final PresetLoader presetLoader = new PresetLoader();
+    private final PresetApplier presetApplier = new PresetApplier();
+    private final PresetWriter presetWriter = new PresetWriter();
+
+    private record ComponentEditorContext(String componentId, ComponentContainer container,
+                                          ComponentDefinition definition, ComponentConfigEntry configEntry) {
+    }
 
     public MainWindow(Stage stage, AppModel model) {
         this.stage = stage;
@@ -455,6 +471,7 @@ public class MainWindow {
         inspector.showConfigurationHelp();
         inspector.refreshFiles();
         updateStatusBar();
+        updateActionState();
     }
 
     /**
@@ -489,6 +506,7 @@ public class MainWindow {
 
             inspector.showComponentOutline(def);
             inspector.showComponentHelp(def);
+            updateActionState();
         } catch (Exception e) {
             showUnresolvedComponentView(componentId, e.getMessage());
         }
@@ -532,6 +550,7 @@ public class MainWindow {
         inspector.showConfigurationHelp();
         inspector.refreshFiles();
         updateStatusBar();
+        updateActionState();
     }
 
     /**
@@ -1173,6 +1192,7 @@ public class MainWindow {
         inspector.showConfigurationHelp();
         inspector.refreshFiles();
         updateStatusBar();
+        updateActionState();
     }
 
     private void updateWindowTitle() {
@@ -1295,9 +1315,16 @@ public class MainWindow {
         );
 
         Menu componentsMenu = new Menu("_Components");
+        loadPresetMenuItem = new MenuItem("Load Preset...");
+        loadPresetMenuItem.setOnAction(e -> loadBundledPreset());
+        savePresetAsMenuItem = new MenuItem("Save Preset As...");
+        savePresetAsMenuItem.setOnAction(e -> savePresetAs());
         componentsMenu.getItems().addAll(
                 new MenuItem("Add Component"),
-                new MenuItem("Remove Component")
+                new MenuItem("Remove Component"),
+                new SeparatorMenuItem(),
+                loadPresetMenuItem,
+                savePresetAsMenuItem
         );
 
         generateMenuItem = new MenuItem("Generate");
@@ -1442,6 +1469,7 @@ public class MainWindow {
 
     private void updateActionState() {
         boolean hasConfiguration = model.getConfiguration() != null;
+        boolean hasComponentEditor = getCurrentComponentEditorContext() != null;
 
         if (newMenuItem != null) {
             newMenuItem.setDisable(!hasConfiguration);
@@ -1482,6 +1510,245 @@ public class MainWindow {
         if (targetSelector != null) {
             targetSelector.setDisable(!hasConfiguration);
         }
+        if (loadPresetMenuItem != null) {
+            loadPresetMenuItem.setDisable(!hasComponentEditor);
+        }
+        if (savePresetAsMenuItem != null) {
+            savePresetAsMenuItem.setDisable(!hasComponentEditor);
+        }
+    }
+
+    private ComponentEditorContext getCurrentComponentEditorContext() {
+        if (lastViewedComponentId == null
+                || model.getConfiguration() == null
+                || model.getRegistry() == null
+                || !centerPanel.getChildren().contains(configForm.getRoot())) {
+            return null;
+        }
+
+        try {
+            ComponentContainer container = model.getRegistry().lookup(lastViewedComponentId);
+            ComponentDefinition definition = container.loadDefinition();
+            for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
+                if (entry.getComponentId().equals(lastViewedComponentId)) {
+                    return new ComponentEditorContext(lastViewedComponentId, container, definition, entry);
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void loadBundledPreset() {
+        ComponentEditorContext context = getCurrentComponentEditorContext();
+        if (context == null) {
+            return;
+        }
+
+        try {
+            List<String> bundledPresets = new ArrayList<>(context.container().listBundledPresets());
+            bundledPresets.add(OTHER_PRESET_OPTION);
+
+            ChoiceDialog<String> dialog = new ChoiceDialog<>(bundledPresets.get(0), bundledPresets);
+            dialog.setTitle("Load Bundled Preset");
+            dialog.setHeaderText("Select a bundled preset for " + context.definition().getName());
+            dialog.setContentText("Preset:");
+            dialog.showAndWait().ifPresent(selected -> {
+                if (OTHER_PRESET_OPTION.equals(selected)) {
+                    loadExternalPreset();
+                    return;
+                }
+                try (InputStream input = context.container().openBundledPreset(selected)) {
+                    PresetDefinition preset = presetLoader.load(input);
+                    applyPreset(context, preset, "bundled preset '" + selected + "'");
+                } catch (Exception e) {
+                    showError("Failed to load preset", e.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            showError("Failed to list bundled presets", e.getMessage());
+        }
+    }
+
+    private void loadExternalPreset() {
+        ComponentEditorContext context = getCurrentComponentEditorContext();
+        if (context == null) {
+            return;
+        }
+
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Load Preset");
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Preset Files (*.xml)", "*.xml"),
+                new FileChooser.ExtensionFilter("All Files", "*.*"));
+        Path initialDir = model.getConfigRoot();
+        if (initialDir != null && Files.isDirectory(initialDir)) {
+            chooser.setInitialDirectory(initialDir.toFile());
+        }
+        File file = chooser.showOpenDialog(stage);
+        if (file == null) {
+            return;
+        }
+
+        try {
+            PresetDefinition preset = presetLoader.load(file.toPath());
+            applyPreset(context, preset, "preset '" + file.toPath().toAbsolutePath() + "'");
+        } catch (Exception e) {
+            showError("Failed to load preset", e.getMessage());
+        }
+    }
+
+    private void savePresetAs() {
+        ComponentEditorContext context = getCurrentComponentEditorContext();
+        if (context == null) {
+            return;
+        }
+
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Save Preset As");
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Preset Files (*.xml)", "*.xml"),
+                new FileChooser.ExtensionFilter("All Files", "*.*"));
+        Path initialDir = model.getConfigRoot();
+        if (initialDir != null && Files.isDirectory(initialDir)) {
+            chooser.setInitialDirectory(initialDir.toFile());
+        }
+        chooser.setInitialFileName(defaultPresetFilename(context));
+        File file = chooser.showSaveDialog(stage);
+        if (file == null) {
+            return;
+        }
+
+        String presetName = presetNameFromFile(file.toPath());
+        if (presetName.isBlank()) {
+            showError("Invalid preset name", "Preset filename must not be blank.");
+            return;
+        }
+
+        try {
+            presetWriter.save(presetName, context.definition(), context.configEntry().getConfigElement(),
+                    model.getActiveTarget(), file.toPath().toAbsolutePath());
+            inspector.appendLog("Saved preset: " + file.toPath().toAbsolutePath());
+            showInfo("Preset saved", "Preset exported to:\n" + file.toPath().toAbsolutePath());
+        } catch (Exception e) {
+            showError("Failed to save preset", e.getMessage());
+        }
+    }
+
+    private void applyPreset(ComponentEditorContext context, PresetDefinition preset, String sourceDescription) throws Exception {
+        if (componentHasConfiguredValues(context.configEntry().getConfigElement())) {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Applying the preset will update the current component values. Continue?",
+                    ButtonType.OK, ButtonType.CANCEL);
+            confirm.setHeaderText(null);
+            if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+                return;
+            }
+        }
+
+        PresetApplier.ApplyOptions options = resolvePresetApplyOptions();
+        if (options == null) {
+            return;
+        }
+
+        PresetApplyReport report = presetApplier.apply(
+                preset, context.definition(), context.configEntry().getConfigElement(), options);
+        refreshConfigurationFromDocument();
+        appendPresetWarnings(report.warnings());
+        model.setModified(true);
+        showConfigurationForm(context.componentId());
+
+        inspector.showLogTab();
+        inspector.appendLog("Applied " + sourceDescription + " to " + context.definition().getName());
+        inspector.appendLog("Preset applied: " + report.updatedCount() + " updated, "
+                + report.ignoredCount() + " ignored, " + report.unchangedCount() + " unchanged.");
+        for (String warning : report.warnings()) {
+            inspector.appendLog(warning);
+        }
+        updateStatusBar();
+    }
+
+    private PresetApplier.ApplyOptions resolvePresetApplyOptions() {
+        String activeTarget = model.getActiveTarget() != null ? model.getActiveTarget() : "default";
+        if ("default".equals(activeTarget)) {
+            return new PresetApplier.ApplyOptions(activeTarget, false);
+        }
+
+        Alert dialog = new Alert(Alert.AlertType.CONFIRMATION);
+        ButtonType applyToDefault = new ButtonType("Write To Default", ButtonBar.ButtonData.NO);
+        ButtonType createOverrides = new ButtonType("Create Overrides", ButtonBar.ButtonData.YES);
+        dialog.getButtonTypes().setAll(createOverrides, applyToDefault, ButtonType.CANCEL);
+        dialog.setTitle("Preset Target Handling");
+        dialog.setHeaderText("Apply preset to target '" + activeTarget + "'");
+        dialog.setContentText("Choose whether inherited scalar values should create explicit target overrides.");
+        ButtonType result = dialog.showAndWait().orElse(ButtonType.CANCEL);
+        if (result == ButtonType.CANCEL) {
+            return null;
+        }
+        return new PresetApplier.ApplyOptions(activeTarget, result == createOverrides);
+    }
+
+    private boolean componentHasConfiguredValues(Element componentElement) {
+        NodeList descendants = componentElement.getElementsByTagName("*");
+        for (int i = 0; i < descendants.getLength(); i++) {
+            if (descendants.item(i) instanceof Element element) {
+                if ("component".equals(localName(element)) || "targetValue".equals(localName(element))) {
+                    continue;
+                }
+                if (element.hasAttribute("default")) {
+                    return true;
+                }
+                if (!element.getTextContent().trim().isEmpty()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void appendPresetWarnings(List<String> presetWarnings) {
+        if (presetWarnings == null || presetWarnings.isEmpty()) {
+            return;
+        }
+        for (String warning : presetWarnings) {
+            if (!model.getWarnings().contains(warning)) {
+                model.getWarnings().add(warning);
+            }
+        }
+    }
+
+    private String defaultPresetName(ComponentEditorContext context) {
+        String target = model.getActiveTarget() != null ? model.getActiveTarget() : "default";
+        return context.definition().getName() + " (" + target + ")";
+    }
+
+    private String defaultPresetFilename(ComponentEditorContext context) {
+        String target = model.getActiveTarget() != null ? model.getActiveTarget() : "default";
+        return IdNormalizer.normalize(context.definition().getName()) + "_" + target + ".xml";
+    }
+
+    private String presetNameFromFile(Path file) {
+        String filename = file.getFileName() != null ? file.getFileName().toString().trim() : "";
+        int extensionIndex = filename.lastIndexOf('.');
+        if (extensionIndex > 0) {
+            return filename.substring(0, extensionIndex).trim();
+        }
+        return filename;
+    }
+
+    private void showError(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR, message, ButtonType.OK);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.showAndWait();
+    }
+
+    private void showInfo(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION, message, ButtonType.OK);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.showAndWait();
     }
 
     private HBox createStatusBar() {

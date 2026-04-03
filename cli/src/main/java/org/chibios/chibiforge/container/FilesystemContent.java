@@ -55,7 +55,7 @@ public class FilesystemContent implements ComponentContent {
         List<String> result = new ArrayList<>();
         try (Stream<Path> walk = Files.walk(dir)) {
             walk.filter(Files::isRegularFile)
-                .forEach(p -> result.add(root.relativize(p).toString()));
+                .forEach(p -> result.add(root.relativize(p).toString().replace('\\', '/')));
         }
         return result;
     }
