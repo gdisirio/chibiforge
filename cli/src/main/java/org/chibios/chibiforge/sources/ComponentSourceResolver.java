@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package org.chibios.chibiforge.ui.sources;
+package org.chibios.chibiforge.sources;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,7 +31,7 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * Resolves component roots for the UI from project-local, sidecar, environment,
+ * Resolves component roots from project-local, sidecar, environment,
  * and manually supplied roots.
  */
 public class ComponentSourceResolver {

@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package org.chibios.chibiforge.ui.sources;
+package org.chibios.chibiforge.sources;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

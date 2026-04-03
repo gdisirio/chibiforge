@@ -25,7 +25,7 @@ import picocli.CommandLine;
         name = "chibiforge",
         description = "ChibiForge - Component-based configuration and code generation for embedded projects",
         mixinStandardHelpOptions = true,
-        version = "ChibiForge 0.1.0-beta",
+        version = "ChibiForge 0.1.1-beta",
         subcommands = {GenerateCommand.class}
 )
 public class ChibiForgeMain implements Runnable {

@@ -54,8 +54,8 @@ import org.chibios.chibiforge.ui.palette.ComponentPalette;
 import org.chibios.chibiforge.ui.settings.SettingsStore;
 import org.chibios.chibiforge.ui.settings.ThemeMode;
 import org.chibios.chibiforge.ui.settings.UiSettings;
-import org.chibios.chibiforge.ui.sources.ComponentSourceResolver;
-import org.chibios.chibiforge.ui.sources.ResolvedComponentSources;
+import org.chibios.chibiforge.sources.ComponentSourceResolver;
+import org.chibios.chibiforge.sources.ResolvedComponentSources;
 import org.chibios.chibiforge.generator.GenerationAction;
 import org.chibios.chibiforge.generator.GenerationContext;
 import org.chibios.chibiforge.generator.GenerationReport;
@@ -83,7 +83,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 public class MainWindow {
 
     private static final String CONFIG_NS = "http://chibiforge/schema/config";
-    private static final String DEFAULT_TOOL_VERSION = "0.1.0-beta";
+    private static final String DEFAULT_TOOL_VERSION = "0.1.1-beta";
     private static final String DEFAULT_SCHEMA_VERSION = "1.0";
     private static final int MAX_RECENT_FILES = 10;
     private static final String OTHER_PRESET_OPTION = "Other...";
@@ -1390,7 +1390,7 @@ public class MainWindow {
         about.setTitle("About ChibiForge");
         about.setHeaderText("ChibiForge");
         about.setContentText("""
-                Version: 0.1.0-beta
+                Version: 0.1.1-beta
 
                 Schema-driven configuration and code generation for embedded projects.
 

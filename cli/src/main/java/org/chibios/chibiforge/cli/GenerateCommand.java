@@ -23,11 +23,15 @@ import org.chibios.chibiforge.generator.GenerationAction;
 import org.chibios.chibiforge.generator.GenerationContext;
 import org.chibios.chibiforge.generator.GenerationReport;
 import org.chibios.chibiforge.generator.GeneratorEngine;
+import org.chibios.chibiforge.sources.ComponentSourceResolver;
+import org.chibios.chibiforge.sources.ResolvedComponentSources;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 
 @Command(
@@ -42,11 +46,11 @@ public class GenerateCommand implements Callable<Integer> {
     private String configPath;
 
     @Option(names = {"--components"},
-            description = "Filesystem components root (default: env CHIBIFORGE_COMPONENTS_ROOT)")
+            description = "Preferred filesystem components root (overrides auto-discovered roots; default: env CHIBIFORGE_COMPONENTS_ROOT)")
     private String componentsRoot;
 
     @Option(names = {"--plugins"},
-            description = "Plugin JARs root (default: env CHIBIFORGE_PLUGINS_ROOT)")
+            description = "Preferred plugin JAR root or file (overrides auto-discovered roots; default: env CHIBIFORGE_PLUGINS_ROOT)")
     private String pluginsRoot;
 
     @Option(names = {"--target", "-t"},
@@ -66,8 +70,6 @@ public class GenerateCommand implements Callable<Integer> {
     public Integer call() {
         try {
             Path resolvedConfig = resolveConfigPath();
-            Path resolvedComponents = resolveComponentsRoot();
-            Path resolvedPlugins = resolvePluginsRoot();
 
             if (!Files.exists(resolvedConfig)) {
                 System.err.println("Error: Configuration file not found: " + resolvedConfig);
@@ -77,51 +79,36 @@ public class GenerateCommand implements Callable<Integer> {
                 System.err.println("Error: Configuration path is not a file: " + resolvedConfig);
                 return 1;
             }
-            if (resolvedComponents != null) {
-                if (!Files.exists(resolvedComponents)) {
-                    System.err.println("Error: Components root not found: " + resolvedComponents);
-                    return 1;
-                }
-                if (!Files.isDirectory(resolvedComponents)) {
-                    System.err.println("Error: Components root is not a directory: " + resolvedComponents);
-                    return 1;
-                }
-            }
-            if (resolvedPlugins != null) {
-                if (!Files.exists(resolvedPlugins)) {
-                    System.err.println("Error: Plugins root not found: " + resolvedPlugins);
-                    return 1;
-                }
-                if (!Files.isDirectory(resolvedPlugins)) {
-                    System.err.println("Error: Plugins root is not a directory: " + resolvedPlugins);
-                    return 1;
-                }
-            }
-            if (resolvedComponents == null && resolvedPlugins == null) {
-                System.err.println("Error: No component sources specified. " +
-                        "Use --components and/or --plugins (or set CHIBIFORGE_COMPONENTS_ROOT / CHIBIFORGE_PLUGINS_ROOT)");
-                return 1;
-            }
 
             Path configRoot = resolvedConfig.getParent();
             if (configRoot == null) {
                 configRoot = Path.of(".");
             }
 
+            ResolvedComponentSources resolvedSources = resolveComponentSources(resolvedConfig);
+            for (String warning : resolvedSources.warnings()) {
+                System.err.println("WARNING: " + warning);
+            }
+            if (resolvedSources.roots().isEmpty()) {
+                System.err.println("Error: No component sources resolved. " +
+                        "Use --components/--plugins, add chibiforge_sources.json, create ./components, " +
+                        "or set CHIBIFORGE_COMPONENTS.");
+                return 1;
+            }
+
             if (verbose) {
                 System.out.println("Configuration file: " + resolvedConfig.toAbsolutePath());
                 System.out.println("Configuration root: " + configRoot.toAbsolutePath());
-                if (resolvedComponents != null)
-                    System.out.println("Components root:    " + resolvedComponents.toAbsolutePath());
-                if (resolvedPlugins != null)
-                    System.out.println("Plugins root:       " + resolvedPlugins.toAbsolutePath());
+                for (Path componentRoot : resolvedSources.roots()) {
+                    System.out.println("Component root:     " + componentRoot.toAbsolutePath());
+                }
                 System.out.println("Target:             " + target);
                 System.out.println("Dry run:            " + dryRun);
             }
 
             GenerationContext ctx = new GenerationContext(resolvedConfig, configRoot, target, dryRun, verbose);
             GeneratorEngine engine = new GeneratorEngine();
-            GenerationReport report = engine.generate(ctx, resolvedComponents, resolvedPlugins);
+            GenerationReport report = engine.generate(ctx, resolvedSources.roots());
 
             // Warnings to stderr
             for (String warning : report.getWarnings()) {
@@ -184,5 +171,21 @@ public class GenerateCommand implements Callable<Integer> {
             return Path.of(envRoot);
         }
         return null;
+    }
+
+    private ResolvedComponentSources resolveComponentSources(Path configFile) {
+        List<Path> preferredRoots = new ArrayList<>();
+
+        Path resolvedComponents = resolveComponentsRoot();
+        if (resolvedComponents != null) {
+            preferredRoots.add(resolvedComponents);
+        }
+
+        Path resolvedPlugins = resolvePluginsRoot();
+        if (resolvedPlugins != null) {
+            preferredRoots.add(resolvedPlugins);
+        }
+
+        return new ComponentSourceResolver().resolve(configFile, preferredRoots);
     }
 }
