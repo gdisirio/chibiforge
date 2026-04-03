@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<preset xmlns="http://www.example.org/chibiforge_preset/"
+        name="Empty Pins"
+        id="org.chibios.chibiforge.components.hal.stm32f4xx"
+        version="1.0.0">
+  <sections>
+    <section name="Pin Settings">
+      <property name="pins" type="list">
+        <items/>
+      </property>
+    </section>
+  </sections>
+</preset>

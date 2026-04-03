@@ -22,6 +22,7 @@ import org.chibios.chibiforge.component.PropertyDef;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,85 +33,54 @@ class PresetLoaderTest {
     private final PresetLoader loader = new PresetLoader();
 
     @Test
-    void parsesValidPresetWithScalarAndListProperties() throws Exception {
-        PresetDefinition preset = load("""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
-                        name="Discovery Board"
-                        id="org.chibios.chibiforge.components.board.stm32f4xx"
-                        version="1.0.0">
-                  <sections>
-                    <section name="Board Settings">
-                      <property name="Board name" type="string">
-                        <value>STM32F4 Discovery</value>
-                      </property>
-                      <property name="Boot notes" type="text">
-                        <value><![CDATA[Line 1
-Line 2]]></value>
-                      </property>
-                      <property name="Pins" type="list">
-                        <items>
-                          <item>
-                            <sections>
-                              <section name="Pin Details">
-                                <property name="name" type="string">
-                                  <value>PA0</value>
-                                </property>
-                                <property name="mode" type="enum">
-                                  <value>INPUT</value>
-                                </property>
-                                <property name="speed" type="enum">
-                                  <value>LOW</value>
-                                </property>
-                              </section>
-                            </sections>
-                          </item>
-                          <item>
-                            <sections>
-                              <section name="Pin Details">
-                                <property name="name" type="string">
-                                  <value>PA1</value>
-                                </property>
-                                <property name="mode" type="enum">
-                                  <value>OUTPUT</value>
-                                </property>
-                                <property name="speed" type="enum">
-                                  <value>HIGH</value>
-                                </property>
-                              </section>
-                            </sections>
-                          </item>
-                        </items>
-                      </property>
-                    </section>
-                  </sections>
-                </preset>
-                """);
+    void parsesValidScalarPresetFixture() throws Exception {
+        PresetDefinition preset = loadFixture("scalar_patch.xml");
 
-        assertThat(preset.name()).isEqualTo("Discovery Board");
-        assertThat(preset.componentId()).isEqualTo("org.chibios.chibiforge.components.board.stm32f4xx");
+        assertThat(preset.name()).isEqualTo("Scalar Patch");
+        assertThat(preset.componentId()).isEqualTo("org.chibios.chibiforge.components.hal.stm32f4xx");
         assertThat(preset.version()).isEqualTo("1.0.0");
         assertThat(preset.sections()).hasSize(1);
 
         PresetSection section = preset.sections().get(0);
-        assertThat(section.name()).isEqualTo("Board Settings");
-        assertThat(section.properties()).hasSize(3);
+        assertThat(section.name()).isEqualTo("Initialization Settings");
+        assertThat(section.properties()).hasSize(2);
 
         PresetProperty scalar = section.properties().get(0);
-        assertThat(scalar.name()).isEqualTo("Board name");
-        assertThat(scalar.type()).isEqualTo(PropertyDef.Type.STRING);
-        assertThat(scalar.value()).isEqualTo("STM32F4 Discovery");
+        assertThat(scalar.name()).isEqualTo("hse_frequency");
+        assertThat(scalar.type()).isEqualTo(PropertyDef.Type.INT);
+        assertThat(scalar.value()).isEqualTo("12000000");
         assertThat(scalar.items()).isEmpty();
 
         PresetProperty text = section.properties().get(1);
         assertThat(text.type()).isEqualTo(PropertyDef.Type.TEXT);
-        assertThat(text.value()).contains("Line 1").contains("Line 2");
+        assertThat(text.value()).isEqualTo("Updated notes");
+    }
 
-        PresetProperty list = section.properties().get(2);
+    @Test
+    void parsesValidStructuredListPresetFixture() throws Exception {
+        PresetDefinition preset = loadFixture("structured_list_replace.xml");
+
+        assertThat(preset.name()).isEqualTo("Structured Pin List");
+        assertThat(preset.componentId()).isEqualTo("org.chibios.chibiforge.components.hal.stm32f4xx");
+        assertThat(preset.sections()).singleElement().satisfies(section -> {
+            assertThat(section.name()).isEqualTo("Pin Settings");
+            assertThat(section.properties()).singleElement().satisfies(list -> {
+                assertThat(list.name()).isEqualTo("pins");
+                assertThat(list.type()).isEqualTo(PropertyDef.Type.LIST);
+                assertThat(list.items()).hasSize(2);
+            });
+        });
+
+        PresetProperty list = preset.sections().get(0).properties().get(0);
         assertThat(list.type()).isEqualTo(PropertyDef.Type.LIST);
         assertThat(list.value()).isNull();
         assertThat(list.items()).hasSize(2);
         assertThat(list.items().get(0).sections()).singleElement().satisfies(itemSection -> {
+            assertThat(itemSection.name()).isEqualTo("Pin Details");
+            assertThat(itemSection.properties()).extracting(PresetProperty::name)
+                    .containsExactly("name", "mode");
+        });
+        assertThat(list.items().get(1).sections()).singleElement().satisfies(itemSection -> {
             assertThat(itemSection.name()).isEqualTo("Pin Details");
             assertThat(itemSection.properties()).extracting(PresetProperty::name)
                     .containsExactly("name", "mode", "speed");
@@ -180,21 +150,7 @@ Line 2]]></value>
 
     @Test
     void acceptsEmptyStructuredList() throws Exception {
-        PresetDefinition preset = load("""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
-                        name="Empty Pins"
-                        id="test.component"
-                        version="1.0.0">
-                  <sections>
-                    <section name="Board Settings">
-                      <property name="Pins" type="list">
-                        <items/>
-                      </property>
-                    </section>
-                  </sections>
-                </preset>
-                """);
+        PresetDefinition preset = loadFixture("empty_list.xml");
 
         PresetProperty list = preset.sections().get(0).properties().get(0);
         assertThat(list.type()).isEqualTo(PropertyDef.Type.LIST);
@@ -204,5 +160,15 @@ Line 2]]></value>
 
     private PresetDefinition load(String xml) throws Exception {
         return loader.load(new ByteArrayInputStream(xml.stripLeading().getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private PresetDefinition loadFixture(String fixtureName) throws Exception {
+        try (InputStream is = PresetLoaderTest.class.getResourceAsStream(
+                "/fixtures/presets/hal-stm32f4xx/" + fixtureName)) {
+            if (is == null) {
+                throw new IllegalArgumentException("Missing preset fixture '" + fixtureName + "'");
+            }
+            return loader.load(is);
+        }
     }
 }

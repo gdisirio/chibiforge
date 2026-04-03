@@ -264,6 +264,7 @@ public class MainWindow {
         model.activeTargetProperty().addListener((obs, old, target) -> updateStatusBar());
         model.validationErrorCountProperty().addListener((obs, old, count) -> updateStatusBar());
         model.getWarnings().addListener((javafx.collections.ListChangeListener<String>) change -> updateStatusBar());
+        model.getPresetWarnings().addListener((javafx.collections.ListChangeListener<String>) change -> updateStatusBar());
 
         // Bind status bar to model
         model.modifiedProperty().addListener((obs, old, mod) -> {
@@ -340,6 +341,7 @@ public class MainWindow {
         model.getTargets().setAll("default");
         model.setActiveTarget("default");
         model.getWarnings().clear();
+        model.getPresetWarnings().clear();
         model.getUnresolvedComponents().clear();
         model.getResolvedComponentRoots().clear();
         model.setValidationErrorCount(0);
@@ -361,6 +363,7 @@ public class MainWindow {
         model.setConfigRoot(configRoot);
         model.setConfigurationRootElement(rootElement);
         model.setConfiguration(config);
+        model.getPresetWarnings().clear();
 
         updateTargets(config);
         refreshRegistryAndWarnings(absoluteConfigFile, config);
@@ -772,8 +775,9 @@ public class MainWindow {
             statusLeft.setText("No configuration loaded");
         }
         List<String> rightParts = new ArrayList<>();
-        if (!model.getWarnings().isEmpty()) {
-            rightParts.add(model.getWarnings().size() + " warning(s)");
+        int warningCount = model.getWarnings().size() + model.getPresetWarnings().size();
+        if (warningCount > 0) {
+            rightParts.add(warningCount + " warning(s)");
         }
         rightParts.add(model.getValidationErrorCount() + " validation error(s)");
         if (model.getConfiguration() == null && !model.isModified()) {
@@ -1655,7 +1659,7 @@ public class MainWindow {
         PresetApplyReport report = presetApplier.apply(
                 preset, context.definition(), context.configEntry().getConfigElement(), options);
         refreshConfigurationFromDocument();
-        appendPresetWarnings(report.warnings());
+        replacePresetWarnings(report.warnings());
         model.setModified(true);
         showConfigurationForm(context.componentId());
 
@@ -1707,15 +1711,12 @@ public class MainWindow {
         return false;
     }
 
-    private void appendPresetWarnings(List<String> presetWarnings) {
+    private void replacePresetWarnings(List<String> presetWarnings) {
         if (presetWarnings == null || presetWarnings.isEmpty()) {
+            model.getPresetWarnings().clear();
             return;
         }
-        for (String warning : presetWarnings) {
-            if (!model.getWarnings().contains(warning)) {
-                model.getWarnings().add(warning);
-            }
-        }
+        model.getPresetWarnings().setAll(new java.util.LinkedHashSet<>(presetWarnings));
     }
 
     private String defaultPresetName(ComponentEditorContext context) {

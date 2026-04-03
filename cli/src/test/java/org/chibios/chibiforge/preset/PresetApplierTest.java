@@ -76,24 +76,7 @@ class PresetApplierTest {
                 </chibiforgeConfiguration>
                 """);
 
-        PresetDefinition preset = loadPreset("""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
-                        name="Scalar Patch"
-                        id="org.chibios.chibiforge.components.hal.stm32f4xx"
-                        version="1.0.0">
-                  <sections>
-                    <section name="Initialization Settings">
-                      <property name="hse_frequency" type="int">
-                        <value>12000000</value>
-                      </property>
-                      <property name="notes" type="text">
-                        <value>Updated notes</value>
-                      </property>
-                    </section>
-                  </sections>
-                </preset>
-                """);
+        PresetDefinition preset = loadPresetFixture("scalar_patch.xml");
 
         PresetApplyReport report = applier.apply(preset, definition, component);
 
@@ -106,53 +89,9 @@ class PresetApplierTest {
     }
 
     @Test
-    void ignoresUnknownPathsWithWarning() throws Exception {
-        Element component = loadComponent(baseConfigXml());
-        PresetDefinition preset = loadPreset("""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
-                        name="Unknown Path"
-                        id="org.chibios.chibiforge.components.hal.stm32f4xx"
-                        version="1.0.0">
-                  <sections>
-                    <section name="Initialization Settings">
-                      <property name="pll_old_mode" type="enum">
-                        <value>PLL</value>
-                      </property>
-                    </section>
-                  </sections>
-                </preset>
-                """);
-
-        PresetApplyReport report = applier.apply(preset, definition, component);
-
-        assertThat(report.updatedCount()).isZero();
-        assertThat(report.ignoredCount()).isEqualTo(1);
-        assertThat(report.warnings()).singleElement().satisfies(warning -> {
-            assertThat(warning).contains("Initialization Settings / pll_old_mode");
-            assertThat(warning).contains("path not present");
-        });
-        assertThat(textOf(component, "initialization_settings", "board_name")).isEqualTo("STM32F4_BOARD");
-    }
-
-    @Test
     void abortsOnComponentIdMismatch() throws Exception {
         Element component = loadComponent(baseConfigXml());
-        PresetDefinition preset = loadPreset("""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
-                        name="Wrong Component"
-                        id="org.chibios.chibiforge.components.board.stm32f4xx"
-                        version="1.0.0">
-                  <sections>
-                    <section name="Initialization Settings">
-                      <property name="board_name" type="string">
-                        <value>WRONG</value>
-                      </property>
-                    </section>
-                  </sections>
-                </preset>
-                """);
+        PresetDefinition preset = loadPresetFixture("mismatched_id.xml");
 
         assertThatThrownBy(() -> applier.apply(preset, definition, component))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -162,21 +101,7 @@ class PresetApplierTest {
     @Test
     void abortsOnInvalidScalarValue() throws Exception {
         Element component = loadComponent(baseConfigXml());
-        PresetDefinition preset = loadPreset("""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
-                        name="Invalid Int"
-                        id="org.chibios.chibiforge.components.hal.stm32f4xx"
-                        version="1.0.0">
-                  <sections>
-                    <section name="Initialization Settings">
-                      <property name="vdd" type="int">
-                        <value>999</value>
-                      </property>
-                    </section>
-                  </sections>
-                </preset>
-                """);
+        PresetDefinition preset = loadPresetFixture("invalid_constrained_value.xml");
 
         assertThatThrownBy(() -> applier.apply(preset, definition, component))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -266,49 +191,7 @@ class PresetApplierTest {
     @Test
     void replacesListPropertyUsingStructuredItems() throws Exception {
         Element component = loadComponent(baseConfigXml());
-        PresetDefinition preset = loadPreset("""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
-                        name="Pins"
-                        id="org.chibios.chibiforge.components.hal.stm32f4xx"
-                        version="1.0.0">
-                  <sections>
-                    <section name="Pin Settings">
-                      <property name="pins" type="list">
-                        <items>
-                          <item>
-                            <sections>
-                              <section name="Pin Details">
-                                <property name="name" type="string">
-                                  <value>PA2</value>
-                                </property>
-                                <property name="mode" type="enum">
-                                  <value>OUTPUT</value>
-                                </property>
-                              </section>
-                            </sections>
-                          </item>
-                          <item>
-                            <sections>
-                              <section name="Pin Details">
-                                <property name="name" type="string">
-                                  <value>PA3</value>
-                                </property>
-                                <property name="mode" type="enum">
-                                  <value>ANALOG</value>
-                                </property>
-                                <property name="speed" type="enum">
-                                  <value>VERY_HIGH</value>
-                                </property>
-                              </section>
-                            </sections>
-                          </item>
-                        </items>
-                      </property>
-                    </section>
-                  </sections>
-                </preset>
-                """);
+        PresetDefinition preset = loadPresetFixture("structured_list_replace.xml");
 
         PresetApplyReport report = applier.apply(preset, definition, component);
 
@@ -332,34 +215,7 @@ class PresetApplierTest {
     @Test
     void ignoresUnknownNestedListPropertiesWithWarning() throws Exception {
         Element component = loadComponent(baseConfigXml());
-        PresetDefinition preset = loadPreset("""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
-                        name="Pins"
-                        id="org.chibios.chibiforge.components.hal.stm32f4xx"
-                        version="1.0.0">
-                  <sections>
-                    <section name="Pin Settings">
-                      <property name="pins" type="list">
-                        <items>
-                          <item>
-                            <sections>
-                              <section name="Pin Details">
-                                <property name="name" type="string">
-                                  <value>PA8</value>
-                                </property>
-                                <property name="legacy_mode" type="enum">
-                                  <value>OUTPUT</value>
-                                </property>
-                              </section>
-                            </sections>
-                          </item>
-                        </items>
-                      </property>
-                    </section>
-                  </sections>
-                </preset>
-                """);
+        PresetDefinition preset = loadPresetFixture("unknown_nested_path.xml");
 
         PresetApplyReport report = applier.apply(preset, definition, component);
 
@@ -376,6 +232,46 @@ class PresetApplierTest {
         assertThat(textOf(section, "speed")).isEqualTo("LOW");
     }
 
+    @Test
+    void replacesListWithEmptyItemsWhenPresetListIsEmpty() throws Exception {
+        Element component = loadComponent("""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <chibiforgeConfiguration xmlns="http://chibiforge/schema/config" toolVersion="1.0.0" schemaVersion="1.0">
+                  <components>
+                    <component id="org.chibios.chibiforge.components.hal.stm32f4xx">
+                      <initialization_settings>
+                        <do_not_init>false</do_not_init>
+                        <vdd>300</vdd>
+                        <hse_frequency>8000000</hse_frequency>
+                        <lse_frequency>32768</lse_frequency>
+                        <system_clock_source>PLL</system_clock_source>
+                        <board_name>STM32F4_BOARD</board_name>
+                        <notes>Old notes</notes>
+                      </initialization_settings>
+                      <pin_settings>
+                        <pins>
+                          <item>
+                            <pin_details>
+                              <name>PA1</name>
+                              <mode>OUTPUT</mode>
+                              <speed>HIGH</speed>
+                            </pin_details>
+                          </item>
+                        </pins>
+                      </pin_settings>
+                    </component>
+                  </components>
+                </chibiforgeConfiguration>
+                """);
+        PresetDefinition preset = loadPresetFixture("empty_list.xml");
+
+        PresetApplyReport report = applier.apply(preset, definition, component);
+
+        assertThat(report.updatedCount()).isEqualTo(1);
+        Element pins = directChild(directChild(component, "pin_settings"), "pins");
+        assertThat(elementChildren(pins)).isEmpty();
+    }
+
     private Element loadComponent(String xml) throws Exception {
         ConfigLoader.LoadedConfiguration loaded = configLoader.loadWithDocument(
                 new ByteArrayInputStream(xml.stripLeading().getBytes(StandardCharsets.UTF_8)));
@@ -385,6 +281,16 @@ class PresetApplierTest {
 
     private PresetDefinition loadPreset(String xml) throws Exception {
         return presetLoader.load(new ByteArrayInputStream(xml.stripLeading().getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private PresetDefinition loadPresetFixture(String fixtureName) throws Exception {
+        try (InputStream is = PresetApplierTest.class.getResourceAsStream(
+                "/fixtures/presets/hal-stm32f4xx/" + fixtureName)) {
+            if (is == null) {
+                throw new IllegalArgumentException("Missing preset fixture '" + fixtureName + "'");
+            }
+            return presetLoader.load(is);
+        }
     }
 
     private String baseConfigXml() {

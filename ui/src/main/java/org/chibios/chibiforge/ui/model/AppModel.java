@@ -46,6 +46,7 @@ public class AppModel {
     private final IntegerProperty validationErrorCount = new SimpleIntegerProperty(0);
     private final ObservableList<String> targets = FXCollections.observableArrayList();
     private final ObservableList<String> warnings = FXCollections.observableArrayList();
+    private final ObservableList<String> presetWarnings = FXCollections.observableArrayList();
     private final ObservableList<String> unresolvedComponents = FXCollections.observableArrayList();
     private final ObservableList<Path> resolvedComponentRoots = FXCollections.observableArrayList();
 
@@ -87,6 +88,7 @@ public class AppModel {
 
     public ObservableList<String> getTargets() { return targets; }
     public ObservableList<String> getWarnings() { return warnings; }
+    public ObservableList<String> getPresetWarnings() { return presetWarnings; }
     public ObservableList<String> getUnresolvedComponents() { return unresolvedComponents; }
     public ObservableList<Path> getResolvedComponentRoots() { return resolvedComponentRoots; }
 

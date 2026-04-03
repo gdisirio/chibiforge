@@ -229,6 +229,16 @@ public class InspectorPanel {
                 helpContent.getChildren().add(w);
             }
         }
+
+        if (!model.getPresetWarnings().isEmpty()) {
+            addHelpHeader("Preset Apply Warnings");
+            for (String warning : model.getPresetWarnings()) {
+                Label w = new Label("  \u26A0 " + warning);
+                w.setWrapText(true);
+                w.setStyle("-fx-text-fill: #cc6600;");
+                helpContent.getChildren().add(w);
+            }
+        }
     }
 
     /**
@@ -273,6 +283,16 @@ public class InspectorPanel {
         addHelpHeader("Sections");
         for (SectionDef section : def.getSections()) {
             addHelpLine("  " + section.getName());
+        }
+
+        if (!model.getPresetWarnings().isEmpty()) {
+            addHelpHeader("Preset Apply Warnings");
+            for (String warning : model.getPresetWarnings()) {
+                Label w = new Label("  \u26A0 " + warning);
+                w.setWrapText(true);
+                w.setStyle("-fx-text-fill: #cc6600;");
+                helpContent.getChildren().add(w);
+            }
         }
     }
 

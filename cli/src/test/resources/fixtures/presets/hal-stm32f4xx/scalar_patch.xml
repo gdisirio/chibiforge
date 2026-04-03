@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<preset xmlns="http://www.example.org/chibiforge_preset/"
+        name="Scalar Patch"
+        id="org.chibios.chibiforge.components.hal.stm32f4xx"
+        version="1.0.0">
+  <sections>
+    <section name="Initialization Settings">
+      <property name="hse_frequency" type="int">
+        <value>12000000</value>
+      </property>
+      <property name="notes" type="text">
+        <value><![CDATA[Updated notes]]></value>
+      </property>
+    </section>
+  </sections>
+</preset>
