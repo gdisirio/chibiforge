@@ -1242,7 +1242,7 @@ Current implementation note:
 
 - target-local replacement is implemented for scalar properties
 - `<property type="list">` replacement currently applies only to single-target list values
-- multi-target list replacement is not yet supported because the `.xcfg` format does not currently define a structured target-specific encoding for list items analogous to scalar `<targetValue>` entries
+- replacement of list values using target-specific encoding is not yet supported because the `.xcfg` format does not currently define a structured target-specific encoding for list items analogous to scalar `<targetValue>` entries
 
 ### 11.10 Schema evolution behavior
 

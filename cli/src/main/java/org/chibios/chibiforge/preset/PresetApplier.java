@@ -166,7 +166,7 @@ public class PresetApplier {
                                         Element propertyElement, List<String> warnings, String displayPath) {
         if (isMultiTargetProperty(propertyElement)) {
             throw new IllegalArgumentException("Preset list property '" + displayPath
-                    + "' cannot be applied to a multi-target list value");
+                    + "' cannot be applied to a list value using unsupported target-specific encoding");
         }
 
         clearChildren(propertyElement);

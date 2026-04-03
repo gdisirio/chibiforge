@@ -135,8 +135,8 @@ public class PresetWriter {
             return itemsElement;
         }
         if (isMultiTargetProperty(configProperty)) {
-            throw new IllegalArgumentException("Preset export does not support multi-target list property '"
-                    + property.getName() + "'");
+            throw new IllegalArgumentException("Preset export does not support list property '"
+                    + property.getName() + "' using unsupported target-specific encoding");
         }
 
         NodeList children = configProperty.getChildNodes();

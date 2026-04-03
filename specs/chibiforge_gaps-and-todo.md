@@ -49,6 +49,8 @@
 Tracked but intentionally out of the current normative spec:
 
 * preset metadata embedded in `component/schema.xml`
+* structured target-specific encoding for list values in `.xcfg`
+* preset apply/export support for target-specific list values once that encoding is defined
 
 ---
 

@@ -192,7 +192,7 @@ class PresetWriterTest {
 
         assertThatThrownBy(() -> presetWriter.export("Bad", definition, component, "debug"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("multi-target list property");
+                .hasMessageContaining("unsupported target-specific encoding");
     }
 
     private Element loadComponent(String xml) throws Exception {

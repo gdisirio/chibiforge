@@ -237,7 +237,7 @@ When disabled:
 
 List properties SHALL be treated as single-target.
 
-Preset-driven multi-target list replacement is not supported.
+Preset-driven replacement of list values using target-specific encoding is not supported.
 
 ---
 
@@ -362,4 +362,3 @@ This specification does NOT define:
 * preset inheritance or chaining
 
 ---
-
