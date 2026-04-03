@@ -1371,6 +1371,13 @@ Existing board components:
 - MAY be retained temporarily
 - SHOULD be migrated to the preset-based model
 
+### 11.16 Still deferred
+
+The following preset-related items remain deferred beyond the current v12 contract:
+
+- preset metadata embedded in `component/schema.xml`
+- automated migration of legacy board components into the preset-based model
+
 
 ## 12. Tool Integration
 
