@@ -1,0 +1,349 @@
+/* ChibiForge Dark Theme */
+
+.root {
+    -fx-font-family: "System";
+    -fx-font-size: 13px;
+    -fx-background-color: #1c1f24;
+    -fx-text-fill: #d9dde3;
+    -fx-accent: #4a90d9;
+    -fx-focus-color: #4a90d9;
+    -fx-faint-focus-color: rgba(74, 144, 217, 0.18);
+}
+
+.label,
+.text,
+.check-box,
+.radio-button {
+    -fx-text-fill: #d9dde3;
+}
+
+.dialog-pane,
+.dialog-pane > .content.label,
+.alert,
+.context-menu,
+.menu-bar,
+.menu,
+.menu-item,
+.tool-bar,
+.split-pane,
+.scroll-pane,
+.viewport {
+    -fx-background-color: #252a31;
+}
+
+.split-pane > .split-pane-divider {
+    -fx-background-color: #303744;
+    -fx-border-color: #475161;
+}
+
+.menu-item .label {
+    -fx-text-fill: #d9dde3;
+}
+
+.tab-pane .tab-header-area .tab-header-background {
+    -fx-background-color: #252a31;
+}
+
+.tab-pane .tab {
+    -fx-background-color: #2d333b;
+}
+
+.tab-pane .tab:selected {
+    -fx-background-color: #3a4350;
+}
+
+.tab-pane .tab .tab-label {
+    -fx-text-fill: #d9dde3;
+}
+
+.palette-panel {
+    -fx-background-color: #20242b;
+    -fx-border-color: #3a4250;
+    -fx-border-width: 0 1 0 0;
+}
+
+.center-panel {
+    -fx-background-color: #1c1f24;
+}
+
+.inspector-panel {
+    -fx-background-color: #20242b;
+    -fx-border-color: #3a4250;
+    -fx-border-width: 0 0 0 1;
+}
+
+.panel-header {
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-text-fill: #f2f4f8;
+}
+
+.placeholder-text {
+    -fx-text-fill: #8d98a7;
+    -fx-font-size: 14px;
+}
+
+.status-bar {
+    -fx-background-color: #252a31;
+    -fx-border-color: #3a4250;
+    -fx-border-width: 1 0 0 0;
+    -fx-font-size: 12px;
+}
+
+.accent-button {
+    -fx-base: #3f83cc;
+    -fx-text-fill: white;
+}
+
+.breadcrumb-bar {
+    -fx-background-color: #252a31;
+    -fx-border-color: #3a4250;
+    -fx-border-width: 0 0 1 0;
+}
+
+.breadcrumb-current {
+    -fx-font-weight: bold;
+    -fx-text-fill: #f2f4f8;
+}
+
+.breadcrumb-link {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+    -fx-text-fill: #7eb6ff;
+}
+
+.breadcrumb-separator {
+    -fx-text-fill: #8d98a7;
+}
+
+.mini-toolbar {
+    -fx-background-color: #252a31;
+    -fx-border-color: #3a4250;
+    -fx-border-width: 0 0 1 0;
+}
+
+.button,
+.toggle-button,
+.combo-box,
+.text-field,
+.text-area,
+.choice-box,
+.spinner,
+.list-view,
+.tree-view,
+.table-view,
+.titled-pane > .title,
+.accordion {
+    -fx-background-color: #2d333b;
+    -fx-text-fill: #d9dde3;
+}
+
+.button,
+.toggle-button,
+.combo-box,
+.choice-box,
+.spinner,
+.text-field,
+.text-area,
+.list-view,
+.tree-view,
+.table-view,
+.scroll-pane,
+.split-pane,
+.dialog-pane,
+.tab-pane,
+.menu-bar,
+.tool-bar,
+.titled-pane > .title {
+    -fx-border-color: #475161;
+}
+
+.combo-box .list-cell,
+.list-view .list-cell,
+.tree-cell,
+.table-row-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #d9dde3;
+}
+
+.combo-box-popup .list-view,
+.choice-box .context-menu,
+.combo-box-popup .list-cell,
+.choice-box .menu-item {
+    -fx-background-color: #2d333b;
+    -fx-text-fill: #d9dde3;
+}
+
+.list-cell:filled:selected,
+.tree-cell:selected,
+.table-row-cell:selected,
+.combo-box-popup .list-cell:filled:selected,
+.choice-box .menu-item:focused {
+    -fx-background-color: #4a90d9;
+    -fx-text-fill: white;
+}
+
+.table-view .column-header-background,
+.table-view .column-header,
+.table-view .filler {
+    -fx-background-color: #252a31;
+    -fx-border-color: #475161;
+}
+
+.table-view .column-header .label {
+    -fx-text-fill: #d9dde3;
+}
+
+.text-input,
+.text-area .content,
+.text-field,
+.combo-box-base,
+.spinner .text-field {
+    -fx-background-color: #2d333b;
+    -fx-text-fill: #d9dde3;
+    -fx-highlight-fill: #4a90d9;
+    -fx-highlight-text-fill: white;
+}
+
+.check-box .box,
+.radio-button .radio {
+    -fx-background-color: #2d333b;
+    -fx-border-color: #475161;
+}
+
+.check-box:selected .mark,
+.radio-button:selected .dot {
+    -fx-background-color: #4a90d9;
+}
+
+.separator .line {
+    -fx-border-color: #475161;
+}
+
+.titled-pane > .title {
+    -fx-text-fill: #d9dde3;
+}
+
+.titled-pane > .content {
+    -fx-background-color: #1f2329;
+    -fx-border-color: #303744;
+}
+
+.hyperlink {
+    -fx-text-fill: #7eb6ff;
+}
+
+.tooltip {
+    -fx-background-color: #2d333b;
+    -fx-text-fill: #d9dde3;
+    -fx-border-color: #475161;
+}
+
+.scroll-bar:horizontal,
+.scroll-bar:vertical {
+    -fx-background-color: #252a31;
+}
+
+.scroll-bar:horizontal .thumb,
+.scroll-bar:vertical .thumb {
+    -fx-background-color: #475161;
+    -fx-background-radius: 4;
+}
+
+.scroll-bar:horizontal .track,
+.scroll-bar:vertical .track {
+    -fx-background-color: #252a31;
+}
+
+.progress-bar > .track {
+    -fx-background-color: #2d333b;
+}
+
+.progress-bar > .bar {
+    -fx-background-color: #4a90d9;
+}
+
+.component-card {
+    -fx-background-color: #252a31;
+    -fx-border-color: #475161;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 6, 0, 0, 2);
+    -fx-cursor: hand;
+}
+
+.component-card:hover {
+    -fx-border-color: #6a7688;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 8, 0, 0, 3);
+}
+
+.card-selected {
+    -fx-border-color: #4a90d9;
+    -fx-border-width: 2;
+}
+
+.version-label {
+    -fx-text-fill: #8d98a7;
+    -fx-font-size: 11px;
+}
+
+.hint-text {
+    -fx-text-fill: #8d98a7;
+    -fx-font-size: 11px;
+}
+
+.component-description {
+    -fx-text-fill: #b9c1cb;
+    -fx-font-size: 13px;
+}
+
+.section-description {
+    -fx-text-fill: #9ea8b5;
+    -fx-font-size: 12px;
+    -fx-font-style: italic;
+}
+
+.section-pane {
+    -fx-font-weight: bold;
+}
+
+.section-pane > .content {
+    -fx-background-color: #1f2329;
+}
+
+.property-row {
+    -fx-border-color: transparent transparent #303744 transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.property-name {
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+
+.property-brief {
+    -fx-text-fill: #9ea8b5;
+    -fx-font-size: 11px;
+}
+
+.field-error {
+    -fx-border-color: #d45c5c;
+    -fx-border-width: 1;
+}
+
+.mt-indicator {
+    -fx-text-fill: #717c8d;
+    -fx-font-size: 14px;
+}
+
+.mt-indicator-active {
+    -fx-text-fill: #7eb6ff;
+    -fx-font-size: 14px;
+}
+
+.image-caption {
+    -fx-text-fill: #9ea8b5;
+    -fx-font-size: 11px;
+    -fx-font-style: italic;
+}

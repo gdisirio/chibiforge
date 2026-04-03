@@ -51,6 +51,9 @@ import org.chibios.chibiforge.ui.io.XcfgWriter;
 import org.chibios.chibiforge.ui.targets.ManageTargetsDialog;
 import org.chibios.chibiforge.ui.model.AppModel;
 import org.chibios.chibiforge.ui.palette.ComponentPalette;
+import org.chibios.chibiforge.ui.settings.SettingsStore;
+import org.chibios.chibiforge.ui.settings.ThemeMode;
+import org.chibios.chibiforge.ui.settings.UiSettings;
 import org.chibios.chibiforge.ui.sources.ComponentSourceResolver;
 import org.chibios.chibiforge.ui.sources.ResolvedComponentSources;
 import org.chibios.chibiforge.generator.GenerationAction;
@@ -71,7 +74,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.prefs.Preferences;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -84,13 +86,13 @@ public class MainWindow {
     private static final String DEFAULT_TOOL_VERSION = "1.0.0";
     private static final String DEFAULT_SCHEMA_VERSION = "1.0";
     private static final int MAX_RECENT_FILES = 10;
-    private static final String RECENT_FILES_KEY = "recentFiles";
     private static final String OTHER_PRESET_OPTION = "Other...";
 
     private final Stage stage;
     private final AppModel model;
     private final BorderPane root;
-    private final Preferences preferences;
+    private final SettingsStore settingsStore;
+    private UiSettings settings;
 
     // Top
     private final MenuBar menuBar;
@@ -138,7 +140,8 @@ public class MainWindow {
     public MainWindow(Stage stage, AppModel model) {
         this.stage = stage;
         this.model = model;
-        this.preferences = Preferences.userNodeForPackage(MainWindow.class);
+        this.settingsStore = new SettingsStore();
+        this.settings = settingsStore.load();
 
         // Menu bar
         recentFilesMenu = new Menu("Recent Files");
@@ -1211,22 +1214,24 @@ public class MainWindow {
 
     private void loadRecentFiles() {
         recentFiles.clear();
-        String stored = preferences.get(RECENT_FILES_KEY, "");
-        if (stored.isBlank()) {
-            return;
-        }
-        for (String value : stored.split("\n")) {
-            if (!value.isBlank()) {
+        for (String value : settings.getRecentFiles()) {
+            if (value != null && !value.isBlank()) {
                 recentFiles.add(Path.of(value));
             }
         }
     }
 
     private void saveRecentFiles() {
-        preferences.put(RECENT_FILES_KEY, recentFiles.stream()
-                .map(Path::toString)
-                .reduce((left, right) -> left + "\n" + right)
-                .orElse(""));
+        settings.setRecentFiles(recentFiles.stream().map(Path::toString).toList());
+        try {
+            saveSettings();
+        } catch (Exception e) {
+            showError("Failed to save settings", e.getMessage());
+        }
+    }
+
+    private void saveSettings() throws Exception {
+        settingsStore.save(settings);
     }
 
     private void rememberRecentFile(Path path) {
@@ -1311,11 +1316,13 @@ public class MainWindow {
         );
 
         Menu editMenu = new Menu("_Edit");
+        MenuItem settingsItem = new MenuItem("Settings...");
+        settingsItem.setOnAction(e -> showSettingsDialog());
         editMenu.getItems().addAll(
                 new MenuItem("Undo"),
                 new MenuItem("Redo"),
                 new SeparatorMenuItem(),
-                new MenuItem("Preferences...")
+                settingsItem
         );
 
         Menu componentsMenu = new Menu("_Components");
@@ -1341,12 +1348,87 @@ public class MainWindow {
         generateMenu.getItems().addAll(generateMenuItem, cleanMenuItem);
 
         Menu helpMenu = new Menu("_Help");
-        helpMenu.getItems().addAll(
-                new MenuItem("About"),
-                new MenuItem("Documentation")
-        );
+        MenuItem aboutItem = new MenuItem("About");
+        aboutItem.setOnAction(e -> showAboutDialog());
+        helpMenu.getItems().add(aboutItem);
 
         return new MenuBar(fileMenu, editMenu, componentsMenu, generateMenu, helpMenu);
+    }
+
+    private void showAboutDialog() {
+        Alert about = new Alert(Alert.AlertType.INFORMATION);
+        about.setTitle("About ChibiForge");
+        about.setHeaderText("ChibiForge");
+        about.setContentText("""
+                Version: 1.0.0-SNAPSHOT
+
+                Schema-driven configuration and code generation for embedded projects.
+
+                Modules:
+                - CLI generator engine
+                - JavaFX desktop editor
+                """);
+        about.showAndWait();
+    }
+
+    public void applyThemeToScene() {
+        if (stage.getScene() == null) {
+            return;
+        }
+        String css = switch (settings.getTheme()) {
+            case DARK -> getClass().getResource("/css/dark.css").toExternalForm();
+            case LIGHT -> getClass().getResource("/css/light.css").toExternalForm();
+        };
+        stage.getScene().getStylesheets().setAll(css);
+    }
+
+    private void showSettingsDialog() {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Settings");
+        dialog.setHeaderText("ChibiForge Settings");
+        dialog.getDialogPane().getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
+
+        ComboBox<ThemeMode> themeSelector = new ComboBox<>();
+        themeSelector.getItems().setAll(ThemeMode.values());
+        themeSelector.getSelectionModel().select(settings.getTheme());
+        themeSelector.setCellFactory(list -> new ListCell<>() {
+            @Override
+            protected void updateItem(ThemeMode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.displayName());
+            }
+        });
+        themeSelector.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(ThemeMode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.displayName());
+            }
+        });
+
+        Label settingsPathLabel = new Label(settingsStore.getSettingsPath().toString());
+        settingsPathLabel.setWrapText(true);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(12);
+        grid.setVgap(10);
+        grid.add(new Label("Theme:"), 0, 0);
+        grid.add(themeSelector, 1, 0);
+        grid.add(new Label("Settings file:"), 0, 1);
+        grid.add(settingsPathLabel, 1, 1);
+        dialog.getDialogPane().setContent(grid);
+
+        if (dialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+            return;
+        }
+
+        settings.setTheme(themeSelector.getValue());
+        try {
+            saveSettings();
+            applyThemeToScene();
+        } catch (Exception e) {
+            showError("Failed to save settings", e.getMessage());
+        }
     }
 
     private boolean handleDeleteShortcut() {

@@ -66,11 +66,9 @@ public class ChibiForgeApp extends Application {
         MainWindow mainWindow = new MainWindow(primaryStage, model);
         Scene scene = new Scene(mainWindow.getRoot(), DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
-        String css = getClass().getResource("/css/light.css").toExternalForm();
-        scene.getStylesheets().add(css);
-
         primaryStage.setTitle(APP_TITLE);
         primaryStage.setScene(scene);
+        mainWindow.applyThemeToScene();
         primaryStage.show();
 
         // If a config file was provided on the command line, open it
