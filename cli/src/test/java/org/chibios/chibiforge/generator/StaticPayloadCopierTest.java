@@ -108,4 +108,38 @@ class StaticPayloadCopierTest {
         // But actions should be recorded
         assertThat(report.getActions()).isNotEmpty();
     }
+
+    @Test
+    void copiesBuildDirectoryUnderGeneratedComponentRoot(@TempDir Path tempDir) throws Exception {
+        Path componentDir = tempDir.resolve("component");
+        Files.createDirectories(componentDir.resolve("build/mk"));
+        Files.writeString(componentDir.resolve("build/mk/rules.mk"), "RULES = 1\n");
+
+        FilesystemContent localContent = new FilesystemContent(componentDir);
+        GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", false, false);
+        GenerationReport report = new GenerationReport();
+
+        copier.copyPayloads("org.chibios.chibiforge.components.test.build", localContent, ctx, report);
+
+        Path expected = tempDir.resolve("generated/org_chibios_chibiforge_components_test_build/build/mk/rules.mk");
+        assertThat(expected).exists();
+        assertThat(Files.readString(expected)).contains("RULES = 1");
+    }
+
+    @Test
+    void copiesUnknownTopLevelDirectoryAsStaticPayload(@TempDir Path tempDir) throws Exception {
+        Path componentDir = tempDir.resolve("component");
+        Files.createDirectories(componentDir.resolve("include/sub"));
+        Files.writeString(componentDir.resolve("include/sub/test.h"), "#define TEST 1\n");
+
+        FilesystemContent localContent = new FilesystemContent(componentDir);
+        GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", false, false);
+        GenerationReport report = new GenerationReport();
+
+        copier.copyPayloads("org.chibios.chibiforge.components.test.include", localContent, ctx, report);
+
+        Path expected = tempDir.resolve("generated/org_chibios_chibiforge_components_test_include/include/sub/test.h");
+        assertThat(expected).exists();
+        assertThat(Files.readString(expected)).contains("#define TEST 1");
+    }
 }

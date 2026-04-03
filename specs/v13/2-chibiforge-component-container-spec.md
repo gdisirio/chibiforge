@@ -79,6 +79,7 @@ component/
   cfg_root_wo/
 
   source/
+  build/
   source_root_wa/
   source_root_wo/
 
@@ -138,21 +139,61 @@ other/
 
 ---
 
-### 5.6 source_root_wa/
+### 5.6 build/
+
+* Static build-related files copied to:
+
+```text
+<projectRoot>/generated/<normalizedComponentId>/build/
+```
+
+* Always overwritten
+* Typical contents include `.mk` fragments and other generated-tree build artefacts
+
+---
+
+### 5.7 Other Unspecified Directories
+
+Any top-level directory under `component/` not otherwise defined by this specification SHALL be treated as static payload.
+
+Files under such a directory SHALL be copied to:
+
+```text
+<projectRoot>/generated/<normalizedComponentId>/<directoryName>/
+```
+
+* Always overwritten
+
+Reserved directories with defined semantics include:
+
+* `cfg/`
+* `cfg_root_wa/`
+* `cfg_root_wo/`
+* `source/`
+* `build/`
+* `source_root_wa/`
+* `source_root_wo/`
+* `resources/`
+* `rsc/`
+* `presets/`
+
+---
+
+### 5.8 source_root_wa/
 
 * Static files copied to project root
 * Always overwritten
 
 ---
 
-### 5.7 source_root_wo/
+### 5.9 source_root_wo/
 
 * Static files copied to project root
 * Written only if file does not exist
 
 ---
 
-### 5.8 resources/
+### 5.10 resources/
 
 * Contains XML or JSON resource files
 * Used by schema and templates
@@ -160,7 +201,7 @@ other/
 
 ---
 
-### 5.9 rsc/
+### 5.11 rsc/
 
 * Optional UI assets
 * Example: `icon.png`
@@ -306,4 +347,3 @@ This specification does NOT define:
 * UI rendering
 
 ---
-

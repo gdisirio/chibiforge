@@ -67,7 +67,33 @@ are copied to:
 
 ---
 
-### 4.2 source_root_wa/
+### 4.2 build/
+
+```text
+component/build/
+```
+
+→ `<projectRoot>/generated/<normalizedComponentId>/build/`
+
+* always overwritten
+
+---
+
+### 4.3 Other Unspecified Directories
+
+Any top-level directory under `component/` not explicitly defined by the container specification SHALL be treated as static payload.
+
+Files under such a directory are copied to:
+
+```text
+<projectRoot>/generated/<normalizedComponentId>/<directoryName>/
+```
+
+* always overwritten
+
+---
+
+### 4.4 source_root_wa/
 
 ```text id="mucy0o"
 component/source_root_wa/
@@ -79,7 +105,7 @@ component/source_root_wa/
 
 ---
 
-### 4.3 source_root_wo/
+### 4.5 source_root_wo/
 
 ```text id="2slvzg"
 component/source_root_wo/

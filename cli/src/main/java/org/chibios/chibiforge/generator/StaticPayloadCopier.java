@@ -28,18 +28,35 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Copies static payload files from component containers to the configuration root.
  *
  * source/            -> generated/<normalizedId>/  (always overwrite)
+ * build/             -> generated/<normalizedId>/build/ (always overwrite)
  * source_root_wa/    -> configRoot/                (always overwrite)
  * source_root_wo/    -> configRoot/                (write-once)
+ * any other unknown directory under component/ is copied statically to
+ * generated/<normalizedId>/<dir>/ (always overwrite)
  */
 public class StaticPayloadCopier {
 
     private static final Logger log = LoggerFactory.getLogger(StaticPayloadCopier.class);
+    private static final Set<String> RESERVED_TOP_LEVEL_DIRS = Set.of(
+            "cfg",
+            "cfg_root_wa",
+            "cfg_root_wo",
+            "source",
+            "source_root_wa",
+            "source_root_wo",
+            "resources",
+            "rsc",
+            "presets"
+    );
 
     public void copyPayloads(String componentId, ComponentContent content,
                              GenerationContext ctx, GenerationReport report) throws IOException {
@@ -59,6 +76,34 @@ public class StaticPayloadCopier {
         copyDirectory(content, "source_root_wo/",
                 ctx.getConfigRoot(),
                 "source_root_wo/", false, ctx, report);
+
+        copyGenericGeneratedDirectories(content,
+                ctx.getGeneratedRoot().resolve(normalizedId),
+                ctx, report);
+    }
+
+    private void copyGenericGeneratedDirectories(ComponentContent content, Path generatedComponentRoot,
+                                                 GenerationContext ctx, GenerationReport report) throws IOException {
+        for (String dirName : discoverGenericGeneratedDirectories(content)) {
+            copyDirectory(content, dirName + "/",
+                    generatedComponentRoot.resolve(dirName),
+                    dirName + "/", true, ctx, report);
+        }
+    }
+
+    private List<String> discoverGenericGeneratedDirectories(ComponentContent content) throws IOException {
+        Set<String> result = new LinkedHashSet<>();
+        for (String relativePath : content.list("")) {
+            int slash = relativePath.indexOf('/');
+            if (slash <= 0) {
+                continue;
+            }
+            String topLevelDir = relativePath.substring(0, slash);
+            if (!RESERVED_TOP_LEVEL_DIRS.contains(topLevelDir)) {
+                result.add(topLevelDir);
+            }
+        }
+        return result.stream().sorted(Comparator.naturalOrder()).toList();
     }
 
     private void copyDirectory(ComponentContent content, String prefix, Path destRoot,
