@@ -146,13 +146,23 @@ Each file is processed independently.
 
 ## 7. Data Model
 
-The generator SHALL provide templates with a structured data model.
+The generator SHALL provide templates with a structured data model derived from the resolved configuration.
+
+The data model is constructed from the `<components>` section of `chibiforge.xcfg` **after full resolution**.
+
+All values exposed in the data model are:
+
+* fully resolved
+* target-specific values already selected
+* free of any schema-level expressions (`@xxx`)
+
+The data model SHALL NOT expose any intermediate or unresolved representation.
 
 ---
 
 ### 7.1 Top-Level Variables
 
-Available variables:
+The following variables SHALL be available to templates:
 
 * `doc`
 * `components`
@@ -160,31 +170,27 @@ Available variables:
 
 No additional variables SHALL be exposed.
 
+This set SHALL be:
+
+* deterministic
+* stable across executions
+* independent of tool implementation details
+
 ---
 
 ### 7.2 `doc`
 
 `doc` SHALL contain exactly one resolved `<component>` element corresponding to the component currently being processed.
 
-Its content model is the resolved form of that component's payload as stored in `chibiforge.xcfg`.
-
 Semantics:
 
-* `doc` represents exactly one component
-* `doc` is the current component
-* `doc` contains only effective values for the active target
-* `doc` SHALL NOT expose raw target-specific structures
+* represents a single `<component>` element from `chibiforge.xcfg`
+* corresponds to the component whose container is currently being executed
+* contains only resolved values for the active target
+* contains no target-specific structures (e.g. override maps)
+* contains no schema-level expressions (`@xxx`)
 
-Conceptually, if `chibiforge.xcfg` contains:
-
-```xml id="6v46rg"
-<components>
-  <component id="vendor.example.a" version="1.0.0">...</component>
-  <component id="vendor.example.b" version="1.0.0">...</component>
-</components>
-```
-
-then, while processing `vendor.example.a`, `doc` is the resolved form of that single `<component id="vendor.example.a" ...>` element.
+`doc` SHALL preserve the structural shape of the configuration payload, with all values materialized.
 
 ---
 
@@ -194,69 +200,103 @@ then, while processing `vendor.example.a`, `doc` is the resolved form of that si
 
 Semantics:
 
-* `components` is a collection of component elements
-* each entry corresponds to one `<component>` element from the configuration
-* entries are indexed by component ID
-* each entry contains only effective values for the active target
-* raw target-specific structures SHALL NOT be exposed
+* `components` is a mapping:
 
-Conceptually:
-
-```text id="te95vc"
-components[componentId] -> resolved <component id="componentId" ...>
+```text
+componentId -> resolved component data
 ```
 
-For template access, tools MAY expose this map using the component ID directly or a normalized identifier form, provided the mapping is deterministic and documented consistently.
+* each entry corresponds to one `<component>` element in the configuration file
+* each entry contains only resolved values
+* no target-specific structures SHALL be exposed
+* no `@xxx` expressions SHALL be present
+
+Access to other components through this map SHALL be read-only.
 
 ---
 
 ### 7.4 Relationship Between `doc` and `components`
 
-For the component currently being processed, `doc` SHALL be equivalent to the corresponding entry in `components`.
+For the component currently being processed, `doc` SHALL be identical to the corresponding entry in `components`.
 
-Conceptually:
-
-```text id="d6trda"
+```text
 doc == components[currentComponentId]
 ```
 
-`doc` exists as a convenience alias for the current component.
+`doc` exists as a convenience alias to simplify template authoring.
 
 ---
 
 ### 7.5 Resource Variables
 
-Each declared resource is exposed as:
+Each resource declared in the component schema SHALL be exposed as a top-level variable.
 
-* a top-level variable
-* named by resource ID
+Semantics:
 
-Resources:
+* variable name SHALL match the resource ID
+* value SHALL contain the parsed resource content
+* resources SHALL be read-only
+* resources SHALL be scoped to the current component
+* no `@ref:` expressions SHALL be present
 
-* are scoped to the current component
-* are read-only
+Resources are resolved prior to exposure to the template engine.
 
 ---
 
-## 8. Removed Context
+## 8. Explicit Exclusions
 
-The generator SHALL NOT expose:
+The generator SHALL NOT expose any of the following to templates:
 
-* project root paths
+* schema-level expressions (`@xxx`)
+* unresolved configuration structures
+* target metadata or override structures
 * filesystem paths
-* target metadata
-* execution environment
+* execution environment details
+
+This enforces strict separation between:
+
+* UI / editing logic
+* generation logic
 
 ---
 
 ## 9. Value Resolution
 
-All values SHALL be resolved before template execution.
+All values SHALL be fully resolved before generator execution.
 
-Templates SHALL receive:
+Resolution is performed by the tooling layer prior to invoking the generator.
 
-* only effective values
-* no target-specific structures
+Resolution includes:
+
+* selection of the active target
+* application of schema default values
+* resolution of inherited values
+* evaluation of `@ref:` expressions
+* evaluation of `@cond:` expressions (including visibility and editability effects)
+
+After resolution:
+
+* each property SHALL have a single effective value
+* no conditional or reference expressions SHALL remain
+* the configuration is fully materialized
+
+The generator SHALL receive only this final state.
+
+---
+
+### 9.1 Prohibited Constructs
+
+The generator SHALL NOT evaluate or interpret any schema-level expressions.
+
+This includes, but is not limited to:
+
+* `@ref:`
+* `@cond:`
+* any other `@xxx` construct
+
+Such constructs SHALL NOT appear in the generator data model.
+
+Any occurrence of unresolved expressions at this stage SHALL be treated as an error.
 
 ---
 

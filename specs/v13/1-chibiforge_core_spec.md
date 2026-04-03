@@ -59,12 +59,12 @@ All configuration structure SHALL be defined by component schemas.
 
 ChibiForge is structured into independent layers:
 
-| Layer              | Responsibility                  |
-| ------------------ | ------------------------------- |
-| Component Schema   | Defines configuration structure |
-| Configuration File | Stores values                   |
-| Generator          | Produces outputs                |
-| Tooling / UI       | Provides interaction            |
+| Layer              | Responsibility                                                              |
+| ------------------ | --------------------------------------------------------------------------- |
+| Component Schema   | Defines configuration structure and schema-level expressions                |
+| UI / Editing Tools | Evaluate schema-level expressions and produce resolved configuration values |
+| Configuration File | Stores configuration values                                                 |
+| Generator          | Produces outputs from resolved values                                       |
 
 Each layer SHALL operate strictly within its defined responsibility.
 
@@ -100,6 +100,19 @@ Tools and generators MUST NOT:
 
 ---
 
+### 2.6 Pre-Generation Resolution
+
+All schema-level `@xxx` constructs are UI-only and SHALL be resolved before generation.
+
+This includes, but is not limited to:
+
+* `@ref:` expressions
+* `@cond:` expressions
+
+The generator SHALL operate exclusively on a fully materialized configuration state.
+
+---
+
 ## 3. Core Concepts
 
 ### 3.1 Project Root
@@ -118,7 +131,7 @@ All filesystem operations are relative to this directory.
 
 The **generated root** is a fixed directory:
 
-```text
+```text id="729qed"
 <projectRoot>/generated/
 ```
 
@@ -170,7 +183,7 @@ The configuration file defines:
 
 It SHALL be located at:
 
-```text
+```text id="4802cs"
 <projectRoot>/chibiforge.xcfg
 ```
 
@@ -224,9 +237,8 @@ A **resource** is structured data (XML or JSON) declared by a component.
 
 Resources are used for:
 
-* constraints
-* default values
-* template input
+* schema-level references during editing
+* generator input after resolution, when applicable
 
 Resources are scoped to the owning component.
 
@@ -247,7 +259,7 @@ Normalization rules:
 
 Examples:
 
-```text
+```text id="601gnm"
 HAL-Core_v2 → hal_core_v2
 org.chibios.foo → org_chibios_foo
 my..id → my_id
@@ -262,13 +274,13 @@ This rule MUST be applied consistently across all tools.
 ChibiForge operates on a structured data model representing:
 
 * resolved component configurations
-* resource data
+* resource-derived values when needed by generation
 
 Key properties:
 
-* values are resolved per target before generation
+* all values are resolved before generation
 * templates operate only on resolved values
-* raw target structures are not exposed to templates
+* no schema-level `@xxx` expressions are present in the generator input model
 
 The exact structure is defined in the Generator Specification.
 
@@ -283,7 +295,7 @@ Rules:
 * IDs SHALL be unique within a configuration
 * IDs SHOULD follow reverse-domain naming:
 
-```text
+```text id="3261t1"
 <domain>.<project>.components.<category>.<name>
 ```
 
@@ -307,12 +319,12 @@ Generation outside this boundary is invalid.
 
 Templates SHALL operate only on:
 
-* configuration data
-* resources
+* resolved configuration data
+* generation-visible resources
 
 Templates SHALL NOT depend on:
 
-* filesystem layout
+* schema-level `@xxx` expressions
 * execution context
 * environment-specific state
 
@@ -331,7 +343,7 @@ Examples:
 
 * missing component → error
 * unresolved feature → warning
-* validation failure → error or UI rejection
+* validation failure during editing → error or UI rejection
 
 Exact behavior is defined in other specifications.
 
@@ -349,13 +361,14 @@ Other documents define specific domains:
 * Generator Specification
 * Preset Specification
 * Tooling Specification
-* UI Specification
 
 Precedence rules:
 
 1. XML structure → governed by XSD
 2. semantics → governed by the relevant specification
 3. this document defines global invariants
+
+The user interface behavior of ChibiForge tools is defined in a separate document: `chibiforge-ui_spec_v2.md`.
 
 ---
 

@@ -22,14 +22,14 @@ This document establishes:
 * feature dependency declarations
 * resource declarations
 * configuration structure declarations
-* tool-defined semantics for `@ref:` and `@cond:`
+* UI-level semantics for `@xxx` constructs
 
 This document does **not** define:
 
 * container layout
 * configuration file encoding
 * generator pipeline behavior
-* UI workflows
+* UI workflows (see `chibiforge-ui_spec_v2.md`)
 
 ---
 
@@ -37,7 +37,7 @@ This document does **not** define:
 
 A component schema SHALL be stored at:
 
-```text id="4e6n8v"
+```text id="4h2g2a"
 component/schema.xml
 ```
 
@@ -56,7 +56,7 @@ The XSD is authoritative for:
 
 The root element is:
 
-```xml id="9lw16l"
+```xml id="d7xk3u"
 <component
     id="..."
     name="..."
@@ -72,22 +72,10 @@ The root element is:
 </component>
 ```
 
-The following attributes are required by the XSD:
+The XSD defines:
 
-* `id`
-* `name`
-* `version`
-* `hidden`
-* `is_platform`
-
-The following child elements are required by the XSD, in this order:
-
-1. `<description>`
-2. `<resources>`
-3. `<categories>`
-4. `<requires>`
-5. `<provides>`
-6. `<sections>`
+* required attributes: `id`, `name`, `version`, `hidden`, `is_platform`
+* required child elements and their ordering
 
 ---
 
@@ -95,234 +83,140 @@ The following child elements are required by the XSD, in this order:
 
 ### 4.1 `id`
 
-`id` is the canonical component identifier.
-
-It SHALL uniquely identify the component.
-
-Its packaging-level consistency requirements are defined in the Component Container Specification.
+Canonical component identifier.
 
 ---
 
 ### 4.2 `name`
 
-`name` is a human-readable display name for the component.
+Human-readable name.
 
 ---
 
 ### 4.3 `version`
 
-`version` is the component definition version string.
+Component version string.
 
-The XSD requires only that it be present as a string.
-
-Any stronger version-format rules, if imposed by tooling, are outside the XSD and SHALL be documented separately.
+No semantic format is enforced by the XSD.
 
 ---
 
 ### 4.4 `hidden`
 
-`hidden` is an XSD-constrained boolean string with the value `"true"` or `"false"`.
+Boolean string.
 
-Semantics:
-
-* `"true"` means the component is hidden by default in user-facing component browsing views
-* `"false"` means the component is shown normally
+Defines default visibility in tooling.
 
 ---
 
 ### 4.5 `is_platform`
 
-`is_platform` is an XSD-constrained boolean string with the value `"true"` or `"false"`.
+Boolean string.
 
-Its semantic meaning is tool-defined.
-
-At minimum, it identifies the component as belonging to the platform class for tooling and presentation purposes.
+Identifies platform-class components.
 
 ---
 
-## 5. Description
+## 5. Resources
 
-The `<description>` element contains human-readable component documentation.
+### 5.1 Structure
 
-The XSD requires exactly one `<description>` element.
-
-Its content is plain text.
-
----
-
-## 6. Resources
-
-### 6.1 XSD Structure
-
-The `<resources>` element contains zero or more:
-
-```xml id="xg0k2i"
-<resource id="..." file="..."/>
+```xml id="6v1p5u"
+<resources>
+  <resource id="..." file="..."/>
+</resources>
 ```
 
-Both `id` and `file` are required by the XSD.
+---
+
+### 5.2 Semantics
+
+* resources are component-scoped
+* `id` SHALL be unique
+* `file` is container-relative
+
+Resources are used:
+
+* by UI tools for `@ref:` resolution
+* by the generator as resolved data (no `@ref:` evaluation at generation time)
 
 ---
 
-### 6.2 Semantics
+## 6. Categories
 
-Each `<resource>` declaration defines a resource owned by the component.
-
-Rules:
-
-* `id` SHALL be unique within the component
-* `file` SHALL be interpreted relative to the component container root
-* the file format is determined by the referenced file and tool support
-* XML and JSON are the standard supported resource formats
-
-Resources are component-scoped.
-
-They are used for:
-
-* `@ref:` resolution
-* template data model population
-
----
-
-## 7. Categories
-
-### 7.1 XSD Structure
-
-The `<categories>` element contains one or more:
-
-```xml id="jo4dko"
-<category id="..."/>
+```xml id="m2c0yz"
+<categories>
+  <category id="A/B/C"/>
+</categories>
 ```
 
-The XSD requires at least one category.
+* at least one category required
+* `/` defines hierarchy (tool interpretation)
 
 ---
 
-### 7.2 Semantics
+## 7. Feature Declarations
 
-A category assigns the component to one or more classification paths.
+```xml id="u2v1tm"
+<requires>
+  <feature id="X"/>
+</requires>
 
-The `id` value is a category path string.
-
-The `/` character is interpreted as a hierarchy separator by tools that present categories hierarchically.
-
----
-
-## 8. Feature Declarations
-
-### 8.1 XSD Structure
-
-`<requires>` and `<provides>` each contain zero or more:
-
-```xml id="hxbk1j"
-<feature id="..." exclusive="true|false"/>
+<provides>
+  <feature id="Y" exclusive="true"/>
+</provides>
 ```
 
-The `id` attribute is required.
+Semantics:
 
-The `exclusive` attribute is optional.
+* advisory dependency model
+* no automatic resolution
 
----
+Tools SHALL:
 
-### 8.2 Semantics
-
-Feature declarations implement a soft dependency model.
-
-* `<provides>` declares capabilities offered by the component
-* `<requires>` declares capabilities needed from other configured components
-
-If `exclusive="true"` is present, at most one configured component should provide that feature.
+* warn on missing required features
+* warn on exclusive conflicts
 
 ---
 
-### 8.3 Resolution Rules
+## 8. Sections
 
-Tools SHALL apply the following rules:
+### 8.1 Structure
 
-* if a required feature is not provided by any configured component, emit a warning
-* if more than one configured component provides the same exclusive feature, emit a warning
-
-This mechanism is advisory.
-
-No automatic component insertion, removal, or conflict resolution SHALL occur.
-
----
-
-## 9. Sections
-
-### 9.1 XSD Structure
-
-The `<sections>` element contains one or more `<section>` elements.
-
-A `<section>` has the form:
-
-```xml id="gr2g1j"
+```xml id="kz2q9o"
 <section name="..." expanded="..." editable="..." visible="...">
   <description>...</description>
   ...
 </section>
 ```
 
-The XSD requires:
+---
 
-* `name`
-* `expanded`
-* `editable`
-* `visible`
+### 8.2 Attributes
 
-and exactly one `<description>` child.
-
-After `<description>`, a section may contain any number of:
-
-* `<layout>`
-* `<image>`
-* `<property>`
-
-in any order permitted by the XSD choice model.
+* `name`: identifier
+* `expanded`: initial UI state
+* `editable`, `visible`: string values interpreted by UI
 
 ---
 
-### 9.2 Semantics
+### 8.3 Semantics
 
-A section defines a named grouping of configuration content.
+Sections define hierarchical configuration structure.
 
-The section hierarchy defined in the schema also defines the logical path space used for:
+They define:
 
-* configuration payload interpretation
-* property addressing
-* preset matching
-
----
-
-### 9.3 `expanded`
-
-`expanded` is XSD-constrained to `"true"` or `"false"`.
-
-It defines the initial expanded/collapsed presentation state for tools that support collapsible sections.
+* configuration paths
+* grouping
+* preset matching scope
 
 ---
 
-### 9.4 `editable` and `visible`
+## 9. Properties
 
-The XSD requires these attributes to be present as non-empty strings, but does not constrain their lexical values beyond non-emptiness.
+### 9.1 Structure
 
-ChibiForge-defined semantic values are:
-
-* `"true"`
-* `"false"`
-* `@cond:<xpath>`
-
-Other lexical values may satisfy the XSD but have no defined ChibiForge semantics unless a tool explicitly defines them.
-
----
-
-## 10. Properties
-
-### 10.1 XSD Structure
-
-A property has the form:
-
-```xml id="no1y0s"
+```xml id="i4x7qj"
 <property
     name="..."
     type="..."
@@ -331,28 +225,16 @@ A property has the form:
     default="..."
     editable="..."
     visible="..."
-    ...>
-  <sections>...</sections>
-</property>
+/>
 ```
 
-The XSD requires these attributes:
-
-* `type`
-* `brief`
-* `name`
-* `required`
-* `default`
-* `editable`
-* `visible`
-
-A property may optionally contain one nested `<sections>` element.
+Optional nested `<sections>` allowed by XSD.
 
 ---
 
-### 10.2 Property Types
+### 9.2 Types
 
-The XSD permits exactly these `type` values:
+Allowed:
 
 * `int`
 * `string`
@@ -361,345 +243,199 @@ The XSD permits exactly these `type` values:
 * `enum`
 * `list`
 
-No additional property types are valid.
-
 ---
 
-### 10.3 Optional Type-Related Attributes
+### 9.3 Type Attributes
 
-The XSD permits the following optional attributes:
-
+* `int_min`, `int_max`
 * `string_regex`
+* `text_maxsize`
 * `enum_of`
 * `list_columns`
-* `int_min`
-* `int_max`
-* `text_maxsize`
-
-The XSD does not enforce cross-consistency between these attributes and `type`.
-
-Their semantic use is defined by this specification.
 
 ---
 
-### 10.4 Property Semantics by Type
+### 9.4 Semantics
 
-#### `bool`
+Property semantics are defined by `type`.
 
-Represents a boolean value.
+The XSD does not enforce cross-attribute consistency.
 
-#### `string`
-
-Represents a single-line textual value.
-
-If `string_regex` is present, it defines a validation rule.
-
-#### `text`
-
-Represents a free-form textual value, potentially multi-line.
-
-If `text_maxsize` is present, it defines a maximum length rule.
-
-#### `int`
-
-Represents an integer value.
-
-If `int_min` or `int_max` are present, they define numeric bounds.
-
-#### `enum`
-
-Represents a value selected from a finite set.
-
-If `enum_of` is present, it defines the allowed values.
-
-#### `list`
-
-Represents an ordered list of items.
-
-For `type="list"`, the nested `<sections>` element defines the schema of each list item.
-
-For other property types, nested `<sections>` content is allowed by the XSD but has no defined ChibiForge semantics.
+Tools SHALL enforce type semantics.
 
 ---
 
-### 10.5 `required`
+### 9.5 List Properties
 
-`required` is XSD-constrained to `"true"` or `"false"`.
+For `type="list"`:
 
-It indicates whether the property is semantically required by the schema.
+* nested `<sections>` defines item schema
+* ordered collection
 
-The exact enforcement strategy is tool-defined, but tools SHALL treat `"true"` as normative.
+Constraint:
 
----
-
-### 10.6 `default`
-
-`default` is required by the XSD for every property.
-
-Its value is the schema-defined default value for the property.
-
-The XSD treats it as a string. Type interpretation is tool-defined according to the property type.
-
-The value MAY use `@ref:`.
+* list properties are single-target only
 
 ---
 
-### 10.7 `editable` and `visible`
+## 10. Visibility and Editability
 
-For properties, the XSD requires these attributes as strings.
+### 10.1 Values
 
-ChibiForge-defined values are:
+XSD allows any string.
+
+ChibiForge semantics define:
 
 * `"true"`
 * `"false"`
 * `@cond:<xpath>`
 
-Their semantics match the section-level rules.
-
 ---
 
-## 11. Effective Visibility and Editability
+### 10.2 Effective State
 
-Visibility and editability are evaluated hierarchically.
-
-Effective state SHALL be computed as:
-
-```text id="ybvln5"
-effectiveVisible = parentEffectiveVisible AND ownVisible
-effectiveEditable = parentEffectiveEditable AND ownEditable
+```text id="v3i1nm"
+effectiveVisible = parentVisible AND ownVisible
+effectiveEditable = parentEditable AND ownEditable
 ```
 
-Consequences:
+---
 
-* if an ancestor is effectively not visible, all descendants are effectively not visible
-* if an ancestor is effectively not editable, all descendants are effectively not editable
+## 11. `@xxx` Constructs
 
-Tools MAY skip evaluating descendant `@cond:` expressions when an ancestor already determines the effective state.
+### 11.1 Scope
 
-This is an optimization and SHALL NOT change observable semantics.
+Includes:
+
+* `@cond:`
+* `@ref:`
 
 ---
 
-## 12. `@cond:` Expressions
+### 11.2 Layer Responsibility
 
-### 12.1 Syntax
+All `@xxx` constructs are **UI-layer semantics only**.
 
-A ChibiForge conditional expression uses the form:
+They SHALL:
 
-```text id="21cf52"
+* be evaluated by UI / editing tools
+* NOT be evaluated by the generator
+
+---
+
+### 11.3 Persistence Model
+
+Configuration files SHALL contain only resolved values.
+
+No `@xxx` expressions SHALL appear in generator input data.
+
+---
+
+## 12. `@cond:` Semantics
+
+```text id="i9r6q2"
 @cond:<xpath>
 ```
 
----
+* evaluated against live configuration model
+* produces boolean
 
-### 12.2 Scope
+Controls:
 
-`@cond:` is defined for:
-
-* section `editable`
-* section `visible`
-* property `editable`
-* property `visible`
-
----
-
-### 12.3 Semantics
-
-The XPath expression is evaluated against the live configuration data model.
-
-The result SHALL be interpreted as a boolean condition controlling:
-
-* visibility, or
+* visibility
 * editability
 
-Evaluation failures SHALL be treated as errors or validation failures by tools.
-
 ---
 
-## 13. `@ref:` References
+## 13. `@ref:` Semantics
 
-### 13.1 Syntax
-
-A ChibiForge resource reference uses the form:
-
-```text id="ja4v8s"
+```text id="0whbpf"
 @ref:<resource_id>/<xpath>
 ```
 
----
-
-### 13.2 Scope
-
-`@ref:` MAY appear in any property attribute value.
-
-This includes, but is not limited to:
-
-* `default`
-* `enum_of`
-* `int_min`
-* `int_max`
-
----
-
-### 13.3 Semantics
-
-The reference resolves against a component-owned resource identified by `resource_id`.
-
-The XPath portion is evaluated against that resource's parsed structure.
-
-Resolution failures SHALL be treated as errors or validation failures by tools.
+* resolves values from component resources
+* result is interpreted as a string and converted according to attribute semantics
 
 ---
 
 ## 14. Layouts
 
-### 14.1 XSD Structure
-
-A layout has the form:
-
-```xml id="7k5905"
-<layout columns="1|2|3|4" align="left|center|right">
+```xml id="4fwj9y"
+<layout columns="1..4" align="left|center|right">
   ...
 </layout>
 ```
 
-It may contain zero or more of:
-
-* `<image>`
-* `<property>`
-* `<empty>`
-
-Nested `<layout>` is not allowed by the XSD.
-
-Nested `<section>` is not allowed by the XSD.
-
----
-
-### 14.2 Semantics
-
-A layout arranges its children in a grid-like presentation structure.
-
-* `columns` defines the number of columns
-* `align` defines content alignment within the layout
-
-`<empty>` represents an intentionally empty visual slot.
-
-Its text content, if any, is insignificant.
+* arranges properties visually
+* no semantic effect on configuration
 
 ---
 
 ## 15. Images
 
-### 15.1 XSD Structure
-
-An image has the form:
-
-```xml id="m78gj1"
-<image file="..." align="left|center|right">
+```xml id="qv2m1c"
+<image file="..." align="...">
   <text>...</text>
 </image>
 ```
 
-The XSD requires:
-
-* `file`
-* `align`
-* exactly one `<text>` child
+* UI-only
+* no effect on configuration
 
 ---
 
-### 15.2 Semantics
-
-* `file` is interpreted relative to the component container root
-* `<text>` provides caption or descriptive text
-* image presentation is tool-defined
-
----
-
-## 16. List Properties
-
-### 16.1 Structural Model
-
-For `type="list"`, the optional nested `<sections>` element defines the schema of one list item.
-
-The list value is therefore an ordered collection of items, each of which conforms to that nested section schema.
-
----
-
-### 16.2 Semantics
-
-List properties:
-
-* are ordered
-* support nested structure
-* may themselves contain nested list properties recursively
-
----
-
-### 16.3 Target Model Constraint
-
-List properties SHALL be treated as single-target.
-
-Multi-target list values are not part of the current ChibiForge-defined configuration model.
-
----
-
-## 17. Text Property Serialization Semantics
-
-For properties of `type="text"`:
-
-* tools MUST accept both escaped character data and CDATA on read
-* tools SHOULD write values using a single CDATA section
-
-This is a semantic rule. The XSD does not encode it.
-
----
-
-## 18. Schema Paths
-
-A property is identified semantically by its schema path.
+## 16. Schema Paths
 
 A schema path consists of:
 
-* the hierarchy of enclosing section names
-* followed by the property name
+* section hierarchy
+* property name
 
-Matching operations that use schema paths SHALL use normalized identifiers as defined by the Core Specification.
+Used for:
 
----
+* configuration mapping
+* preset matching
 
-## 19. Validation Model
-
-Validation occurs at two levels.
-
-### 19.1 XSD Validation
-
-The schema document is structurally valid if it conforms to `chibiforge_schema.xsd`.
-
-### 19.2 Semantic Validation
-
-Tools SHALL additionally validate:
-
-* property values against their declared property type
-* `int_min` / `int_max` semantics for `int`
-* `string_regex` semantics for `string`
-* `text_maxsize` semantics for `text`
-* `enum_of` semantics for `enum`
-* valid `@ref:` resolution
-* valid `@cond:` evaluation
-
-Invalid semantic content SHALL be rejected or reported as an error by tools.
+Normalization follows Core Specification.
 
 ---
 
-## 20. Non-Goals
+## 17. Validation Model
+
+### 17.1 XSD Validation
+
+Structure MUST conform to XSD.
+
+---
+
+### 17.2 Semantic Validation
+
+Tools SHALL validate:
+
+* type correctness
+* constraints
+* `@cond:` evaluation
+* `@ref:` resolution
+
+---
+
+## 18. Generator Boundary
+
+The generator SHALL:
+
+* receive only resolved values
+* NOT evaluate `@xxx` constructs
+* NOT depend on schema expressions
+
+---
+
+## 19. Non-Goals
 
 This specification does NOT define:
 
-* configuration file encoding
-* generator pipeline behavior
-* exact UI rendering
-* framework-specific widget mappings
+* configuration encoding
+* generator execution
+* UI rendering details
 
 ---
 
