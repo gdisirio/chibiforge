@@ -55,6 +55,8 @@ class DataModelBuilderTest {
         DataModelBuilder builder = new DataModelBuilder();
         dataModel = builder.buildDataModel(
                 entry.getComponentId(), entry, allConfigs,
+                "generated/" + IdNormalizer.normalize(entry.getComponentId()) + "/",
+                Map.of(entry.getComponentId(), "generated/" + IdNormalizer.normalize(entry.getComponentId()) + "/"),
                 Map.of(), tempDir, "default");
 
         fmConfig = new Configuration(Configuration.VERSION_2_3_32);
@@ -75,6 +77,12 @@ class DataModelBuilderTest {
     @Test
     void configurationVariableExists() {
         assertThat(dataModel).containsKey("configuration");
+    }
+
+    @Test
+    void globalVariableExists() {
+        assertThat(dataModel).containsKey("global");
+        assertThat(dataModel.get("global")).isInstanceOf(NodeModel.class);
     }
 
     @Test
@@ -118,6 +126,17 @@ class DataModelBuilderTest {
         assertThat(out.toString().trim()).isEqualTo("default");
     }
 
+    @Test
+    void globalPathsAreExposed() throws Exception {
+        String templateStr = "${global.absolute_configuration_path}|${global.component_path}|"
+                + "<#list global.component_paths.path as p>${p}<#if p_has_next>,</#if></#list>";
+        Template template = new Template("test", templateStr, fmConfig);
+
+        StringWriter out = new StringWriter();
+        template.process(dataModel, out);
+        assertThat(out.toString()).contains("/").contains("generated/org_chibios_chibiforge_components_hal_stm32f4xx/");
+    }
+
     // --- Multi-target tests ---
 
     private static Map<String, Object> buildMultiTargetModel(String target) throws Exception {
@@ -132,6 +151,8 @@ class DataModelBuilderTest {
 
         return new DataModelBuilder().buildDataModel(
                 entry.getComponentId(), entry, allConfigs,
+                "generated/" + IdNormalizer.normalize(entry.getComponentId()) + "/",
+                Map.of(entry.getComponentId(), "generated/" + IdNormalizer.normalize(entry.getComponentId()) + "/"),
                 Map.of(), Path.of("/tmp"), target);
     }
 

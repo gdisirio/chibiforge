@@ -34,6 +34,7 @@ import java.util.Map;
  * Top-level variables:
  * - doc: current component's resolved configuration (wrapped XML)
  * - components: all components' resolved configurations keyed by normalized ID
+ * - global: generation path metadata
  * - configuration: metadata (root, generatedRoot, target)
  * - One variable per resource
  */
@@ -45,6 +46,8 @@ public class DataModelBuilder {
      * @param componentId the current component's ID
      * @param configEntry the current component's config from xcfg
      * @param allConfigs all component configs from xcfg, keyed by component ID
+     * @param currentComponentPath current component container path relative to config root
+     * @param allComponentPaths all component container paths from xcfg, keyed by component ID
      * @param resources loaded resources for this component (resource ID -> Document/JsonNode)
      * @param configRoot the configuration root directory
      * @param target the active target name
@@ -54,6 +57,8 @@ public class DataModelBuilder {
             String componentId,
             ComponentConfigEntry configEntry,
             Map<String, ComponentConfigEntry> allConfigs,
+            String currentComponentPath,
+            Map<String, String> allComponentPaths,
             Map<String, Object> resources,
             Path configRoot,
             String target) throws Exception {
@@ -65,6 +70,9 @@ public class DataModelBuilder {
 
         // components: all configs keyed by normalized ID (multi-target resolved)
         dataModel.put("components", buildComponents(allConfigs, target));
+
+        // global: generation path metadata
+        dataModel.put("global", buildGlobal(currentComponentPath, allComponentPaths, configRoot));
 
         // configuration: metadata
         dataModel.put("configuration", buildConfiguration(configRoot, target));
@@ -109,6 +117,31 @@ public class DataModelBuilder {
         }
 
         return NodeModel.wrap(componentsRoot);
+    }
+
+    private Object buildGlobal(String currentComponentPath, Map<String, String> allComponentPaths,
+                               Path configRoot) throws Exception {
+        Document doc = createDocument();
+        Element root = doc.createElement("global");
+        doc.appendChild(root);
+
+        Element absoluteConfigurationPath = doc.createElement("absolute_configuration_path");
+        absoluteConfigurationPath.setTextContent(withTrailingSlash(configRoot.toAbsolutePath().normalize().toString()));
+        root.appendChild(absoluteConfigurationPath);
+
+        Element componentPath = doc.createElement("component_path");
+        componentPath.setTextContent(currentComponentPath != null ? currentComponentPath : "");
+        root.appendChild(componentPath);
+
+        Element componentPaths = doc.createElement("component_paths");
+        root.appendChild(componentPaths);
+        for (String path : allComponentPaths.values()) {
+            Element pathElement = doc.createElement("path");
+            pathElement.setTextContent(path);
+            componentPaths.appendChild(pathElement);
+        }
+
+        return NodeModel.wrap(root);
     }
 
     private Object buildConfiguration(Path configRoot, String target) throws Exception {
@@ -215,5 +248,13 @@ public class DataModelBuilder {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
         return builder.newDocument();
+    }
+
+    private String withTrailingSlash(String path) {
+        String normalized = path.replace('\\', '/');
+        if (normalized.endsWith("/")) {
+            return normalized;
+        }
+        return normalized + "/";
     }
 }

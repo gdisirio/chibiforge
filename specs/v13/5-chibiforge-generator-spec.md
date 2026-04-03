@@ -192,6 +192,7 @@ The following variables SHALL be available to templates:
 
 * `doc`
 * `components`
+* `global`
 * resource variables
 
 No additional variables SHALL be exposed.
@@ -253,7 +254,26 @@ doc == components[currentComponentId]
 
 ---
 
-### 7.5 Resource Variables
+### 7.5 `global`
+
+`global` SHALL provide generation path metadata.
+
+The following child values SHALL be available:
+
+* `absolute_configuration_path`
+* `component_path`
+* `component_paths`
+
+Semantics:
+
+* `absolute_configuration_path` is the absolute path of the project/configuration root directory, with a trailing `/`
+* `component_path` is the current component generated-output root relative to project root
+* `component_paths` is the ordered collection of all configured component generated-output roots relative to project root
+* all values in `global` SHALL use `/` as separator and SHALL conventionally terminate directory paths with `/`
+
+---
+
+### 7.6 Resource Variables
 
 Each resource declared in the component schema SHALL be exposed as a top-level variable.
 
@@ -276,7 +296,7 @@ The generator SHALL NOT expose any of the following to templates:
 * schema-level expressions (`@xxx`)
 * unresolved configuration structures
 * target metadata or override structures
-* filesystem paths
+* filesystem paths other than the values explicitly exposed through `global`
 * execution environment details
 
 This enforces strict separation between:

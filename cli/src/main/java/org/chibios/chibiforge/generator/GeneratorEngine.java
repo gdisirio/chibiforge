@@ -26,6 +26,7 @@ import org.chibios.chibiforge.config.ConfigLoader;
 import org.chibios.chibiforge.config.TargetResolver;
 import org.chibios.chibiforge.container.ComponentContainer;
 import org.chibios.chibiforge.container.ComponentContent;
+import org.chibios.chibiforge.datamodel.IdNormalizer;
 import org.chibios.chibiforge.datamodel.DataModelBuilder;
 import org.chibios.chibiforge.feature.FeatureChecker;
 import org.chibios.chibiforge.registry.ComponentRegistry;
@@ -188,6 +189,12 @@ public class GeneratorEngine {
             allConfigs.put(entry.getComponentId(), entry);
         }
 
+        Map<String, String> allComponentPaths = new LinkedHashMap<>();
+        for (ComponentConfigEntry entry : config.getComponents()) {
+            allComponentPaths.put(entry.getComponentId(),
+                    "generated/" + IdNormalizer.normalize(entry.getComponentId()) + "/");
+        }
+
         // 7. Process each component
         for (ComponentConfigEntry entry : config.getComponents()) {
             String compId = entry.getComponentId();
@@ -219,7 +226,9 @@ public class GeneratorEngine {
             Map<String, Object> dataModel;
             try {
                 dataModel = dataModelBuilder.buildDataModel(
-                        compId, entry, allConfigs, resources, ctx.getConfigRoot(), target);
+                        compId, entry, allConfigs,
+                        allComponentPaths.get(compId), allComponentPaths,
+                        resources, ctx.getConfigRoot(), target);
             } catch (Exception e) {
                 throw new ChibiForgeException(
                         "Failed to build data model for component '" + compId + "': " + e.getMessage(), e);

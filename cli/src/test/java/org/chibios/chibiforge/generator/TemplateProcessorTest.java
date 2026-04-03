@@ -58,6 +58,9 @@ class TemplateProcessorTest {
         DataModelBuilder dmBuilder = new DataModelBuilder();
         Map<String, Object> dataModel = dmBuilder.buildDataModel(
                 entry.getComponentId(), entry, allConfigs,
+                "generated/" + org.chibios.chibiforge.datamodel.IdNormalizer.normalize(entry.getComponentId()) + "/",
+                Map.of(entry.getComponentId(),
+                        "generated/" + org.chibios.chibiforge.datamodel.IdNormalizer.normalize(entry.getComponentId()) + "/"),
                 Map.of(), tempDir, "default");
 
         // Process templates
@@ -96,6 +99,9 @@ class TemplateProcessorTest {
         DataModelBuilder dmBuilder = new DataModelBuilder();
         Map<String, Object> dataModel = dmBuilder.buildDataModel(
                 entry.getComponentId(), entry, allConfigs,
+                "generated/" + org.chibios.chibiforge.datamodel.IdNormalizer.normalize(entry.getComponentId()) + "/",
+                Map.of(entry.getComponentId(),
+                        "generated/" + org.chibios.chibiforge.datamodel.IdNormalizer.normalize(entry.getComponentId()) + "/"),
                 Map.of(), tempDir, "default");
 
         GenerationContext ctx = new GenerationContext(tempDir.resolve("chibiforge.xcfg"), tempDir, "default", true, false);
