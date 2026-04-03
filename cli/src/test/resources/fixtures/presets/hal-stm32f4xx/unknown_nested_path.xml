@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<preset xmlns="http://www.example.org/chibiforge_preset/"
+<preset xmlns="http://chibiforge/schema/preset"
         name="Unknown Nested Path"
         id="org.chibios.chibiforge.components.hal.stm32f4xx"
         version="1.0.0">

@@ -43,7 +43,7 @@ import java.nio.file.Path;
  */
 public class PresetWriter {
 
-    private static final String PRESET_NS = "http://www.example.org/chibiforge_preset/";
+    private static final String PRESET_NS = "http://chibiforge/schema/preset";
 
     public Document export(String presetName, ComponentDefinition definition,
                            Element componentElement, String activeTarget) throws Exception {

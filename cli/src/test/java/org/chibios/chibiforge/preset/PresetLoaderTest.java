@@ -91,7 +91,7 @@ class PresetLoaderTest {
     void rejectsPresetThatDoesNotConformToSchema() {
         assertThatThrownBy(() -> load("""
                 <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
+                <preset xmlns="http://chibiforge/schema/preset"
                         name="Invalid"
                         version="1.0.0">
                   <sections>
@@ -111,7 +111,7 @@ class PresetLoaderTest {
     void rejectsMalformedXml() {
         assertThatThrownBy(() -> load("""
                 <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
+                <preset xmlns="http://chibiforge/schema/preset"
                         name="Broken"
                         id="test.component"
                         version="1.0.0">
@@ -131,7 +131,7 @@ class PresetLoaderTest {
     void rejectsListPropertyUsingScalarValue() {
         assertThatThrownBy(() -> load("""
                 <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
+                <preset xmlns="http://chibiforge/schema/preset"
                         name="Bad List"
                         id="test.component"
                         version="1.0.0">

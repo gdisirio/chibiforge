@@ -126,7 +126,7 @@ class PresetApplierTest {
                 """);
         PresetDefinition preset = loadPreset("""
                 <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
+                <preset xmlns="http://chibiforge/schema/preset"
                         name="Release Name"
                         id="org.chibios.chibiforge.components.hal.stm32f4xx"
                         version="1.0.0">
@@ -165,7 +165,7 @@ class PresetApplierTest {
                 """);
         PresetDefinition preset = loadPreset("""
                 <?xml version="1.0" encoding="UTF-8"?>
-                <preset xmlns="http://www.example.org/chibiforge_preset/"
+                <preset xmlns="http://chibiforge/schema/preset"
                         name="Debug Name"
                         id="org.chibios.chibiforge.components.hal.stm32f4xx"
                         version="1.0.0">
