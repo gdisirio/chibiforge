@@ -100,14 +100,26 @@ External presets:
 
 ## **4. Preset File Requirements**
 
+For preset files, the authority order is:
+
+1. `cli/src/main/resources/schemas/chibiforge_preset.xsd`
+2. this document's revised preset semantics in §10
+
+If these differ, the XSD governs the XML structure and §10 governs application semantics.
+
 A preset file MUST:
 
-* declare a `componentId`
+* conform to `cli/src/main/resources/schemas/chibiforge_preset.xsd`
+* declare the target component ID in the root `preset @id` attribute
 * match the target component before application
 
 A preset file SHALL contain:
 
-* a single component configuration fragment
+* a root `<preset>` element with required attributes:
+  * `name`
+  * `id`
+  * `version`
+* a `<sections>` payload matching the preset XSD structure
 * no target declarations
 * no feature definitions
 
@@ -119,7 +131,8 @@ A preset file SHALL contain:
 
 Applying a preset SHALL:
 
-* replace the current component configuration in memory
+* update only the properties explicitly defined in the preset
+* leave all other component values unchanged
 * NOT modify the preset file
 * NOT create any persistent link to the preset
 
@@ -177,7 +190,7 @@ Tools SHALL support exporting presets.
 
 Exporting a preset SHALL:
 
-* serialize the current component configuration
+* serialize the current component configuration into the preset XSD format
 * produce a standalone preset file
 
 ---
@@ -193,6 +206,7 @@ The preset SHALL be fully materialized:
 
 * inherited values MUST be resolved
 * no target structures SHALL be included
+* the exported root `preset @id` SHALL equal the component ID
 
 ---
 
@@ -283,10 +297,10 @@ Presets:
 
 ### **10.2 Component Matching**
 
-A preset MUST declare a `componentId` attribute.
+A preset MUST declare the component ID in the root `preset @id` attribute.
 
 * The value MUST match the target `<component>@id`.
-* If the `componentId` does not match, preset application SHALL fail.
+* If the preset `@id` does not match, preset application SHALL fail.
 * No partial application SHALL occur in case of mismatch.
 
 ---
@@ -429,7 +443,7 @@ Preset applied:
 
 The following SHALL be treated as errors:
 
-* `componentId` mismatch with `<component>@id`
+* preset `@id` mismatch with `<component>@id`
 * malformed preset XML
 * invalid value type for a `<property>` (violates schema constraints)
 
@@ -441,7 +455,7 @@ In such cases, preset application SHALL abort.
 
 Preset export behavior remains unchanged:
 
-* A preset SHALL serialize a single `<component>` configuration fragment
+* A preset SHALL serialize a single `<preset>` document conforming to `cli/src/main/resources/schemas/chibiforge_preset.xsd`
 * Values SHALL reflect the currently selected target
 * All inherited values MUST be resolved into explicit values
 * No `<target>` or `<targetValue>` structures SHALL be included
@@ -465,4 +479,3 @@ Presets remain **deterministic, schema-aligned configuration patches** applied o
 # **End of Addendum**
 
 ---
-

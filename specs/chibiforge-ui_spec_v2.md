@@ -795,7 +795,7 @@ Presets:
 * do not participate in dependency resolution
 * do not create persistent links in the configuration
 
-Applying a preset replaces the component configuration in memory.
+Applying a preset updates only the properties explicitly defined in the preset. All other component values remain unchanged.
 
 ---
 
@@ -843,8 +843,8 @@ The UI SHALL allow:
 
 Before applying a preset:
 
-* the preset MUST declare a `componentId`
-* the `componentId` MUST match the current component
+* the preset MUST conform to `cli/src/main/resources/schemas/chibiforge_preset.xsd`
+* the root `preset @id` MUST match the current component
 * invalid presets MUST be rejected
 
 ---
@@ -853,7 +853,8 @@ Before applying a preset:
 
 Applying a preset SHALL:
 
-* replace the current component configuration in memory
+* update only the matching properties explicitly defined in the preset
+* leave unspecified properties unchanged
 * NOT modify the preset file
 * NOT create any persistent reference to the preset
 
@@ -875,7 +876,7 @@ Presets:
 
 #### 16.4.1 Single-target Properties
 
-The value SHALL be replaced.
+If the property is present in the preset, the value SHALL be replaced.
 
 ---
 
@@ -883,8 +884,9 @@ The value SHALL be replaced.
 
 For each property:
 
-* if an explicit value exists for the active target, it SHALL be replaced
-* otherwise, the `default` value SHALL be replaced
+* if the property is present in the preset and an explicit value exists for the active target, it SHALL be replaced
+* if the property is present in the preset and no explicit value exists for the active target, the `default` value SHALL be replaced
+* if the property is not present in the preset, the existing value SHALL remain unchanged
 
 ---
 
@@ -919,7 +921,7 @@ The component editor SHALL provide a *Save Preset As...* action.
 
 Saving a preset SHALL:
 
-* serialize the current component configuration
+* serialize the current component configuration in the preset XSD format
 * write the preset to a user-selected file
 * NOT modify bundled presets or component containers
 
@@ -937,7 +939,7 @@ This includes:
 * explicit target values
 * inherited values resolved from `default`
 
-The saved preset SHALL be a fully materialized configuration snapshot.
+The saved preset SHALL be a fully materialized configuration snapshot and SHALL NOT contain `<target>` or `<targetValue>` structures.
 
 ---
 
@@ -956,7 +958,7 @@ After applying a preset, the UI SHALL:
 The UI SHALL report:
 
 * invalid XML
-* mismatched `componentId`
+* mismatched preset `@id`
 * schema validation errors
 
 Preset application SHALL be aborted on error.
@@ -970,4 +972,3 @@ Preset application SHALL be aborted on error.
 * Presets may be shared across projects and users
 
 ---
-
