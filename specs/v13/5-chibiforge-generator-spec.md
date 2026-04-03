@@ -343,8 +343,10 @@ Violations SHALL produce warnings.
 
 The generator SHALL:
 
-* write only within project root
+* treat output locations as project-root-relative
 * respect output scope rules
+
+The generator does not currently perform mandatory runtime enforcement that every computed output remains within the project root.
 
 ---
 
@@ -393,4 +395,3 @@ This specification does NOT define:
 * component schema semantics
 
 ---
-

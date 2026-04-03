@@ -309,9 +309,11 @@ Consistency rules across container, schema, and packaging are defined elsewhere.
 
 ### 7.1 Filesystem Boundary
 
-All outputs SHALL remain within the project root.
+All outputs are defined relative to the project root.
 
-Generation outside this boundary is invalid.
+Tools and component authors SHALL treat paths outside the project root as invalid targets.
+
+The current implementation does not require runtime enforcement of this boundary in the generator.
 
 ---
 
@@ -382,4 +384,3 @@ ChibiForge does NOT define:
 * automatic dependency resolution
 
 ---
-

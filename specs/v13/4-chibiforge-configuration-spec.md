@@ -50,7 +50,10 @@ There is exactly one configuration file per project.
 The root element SHALL be:
 
 ```xml
-<chibiforgeConfiguration xmlns="http://chibiforge/schema/config">
+<chibiforgeConfiguration
+    xmlns="http://chibiforge/schema/config"
+    toolVersion="..."
+    schemaVersion="...">
   ...
 </chibiforgeConfiguration>
 ```
@@ -60,7 +63,12 @@ The root element content model is:
 1. optional `<targets>`
 2. required `<components>`
 
-No root attributes are defined by the XSD.
+Root attributes are not yet defined by the XSD, but ChibiForge tools SHALL preserve and write:
+
+* `toolVersion`
+* `schemaVersion`
+
+These attributes are semantic metadata for the configuration document.
 
 ---
 
@@ -127,7 +135,31 @@ Each `<component>` element semantically refers to a component definition identif
 
 The `version` attribute identifies the component definition version expected by the configuration.
 
-Tools SHALL treat a missing component definition as an error.
+Tools SHALL resolve component bindings by the pair:
+
+* component `id`
+* component `version`
+
+Rules:
+
+* if the exact `(id, version)` cannot be resolved, the binding is not satisfied
+* tools SHALL treat an unsatisfied binding as an error for generation
+* interactive tools MAY offer an explicit update path when a later version of the same `id` is available
+* tools SHALL NOT silently switch a configuration to a different component version
+
+Version resolution policy:
+
+* exact `(id, version)` match SHALL be preferred
+* if no exact match exists and one or more later versions of the same `id` are available, interactive tools MAY prompt the user to upgrade
+* if only older versions are available, tools SHALL NOT automatically downgrade
+* non-interactive tools SHALL fail on unresolved exact-version binding
+
+If the user accepts an upgrade:
+
+* the configuration `component @version` SHALL be updated to the selected later version
+* the existing component payload SHALL be retained
+* the resulting payload SHALL then be validated against the new component schema
+* any incompatibilities SHALL be surfaced as warnings or errors
 
 ---
 
@@ -165,11 +197,15 @@ If `<targets>` is present, it defines the explicitly declared target IDs.
 
 If `"default"` is not explicitly listed, tools SHALL still treat `"default"` as logically present.
 
-Tools MAY normalize the file on write by explicitly emitting:
+Tools SHOULD treat `<targets>` as the set of additional targets beyond the implicit `"default"` target.
+
+Tools SHOULD NOT emit:
 
 ```xml
 <target id="default"/>
 ```
+
+unless compatibility with older documents or tools explicitly requires it.
 
 ---
 
@@ -295,6 +331,8 @@ When writing `chibiforge.xcfg`, tools SHOULD:
 * preserve stable ordering where possible
 * preserve semantically equivalent content where possible
 * write component payload in schema order when such order is defined by the tool's schema model
+* preserve or update `toolVersion` and `schemaVersion`
+* omit an explicit `<target id="default"/>` unless compatibility mode requires it
 
 Tools MAY normalize semantically equivalent representations during save.
 
@@ -307,6 +345,8 @@ Tools MAY normalize semantically equivalent representations during save.
 Adding a target creates a new logical target in the configuration.
 
 If `<targets>` is present, a new `<target id="..."/>` element SHALL be added.
+
+If `<targets>` is absent, tools SHALL create `<targets>` and then add the new explicit target.
 
 ---
 
@@ -341,4 +381,3 @@ This specification does NOT define:
 * UI interaction details
 
 ---
-

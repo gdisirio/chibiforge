@@ -36,7 +36,7 @@ class GenerateCommandTest {
     void autoDiscoversProjectLocalComponents(@TempDir Path tempDir) throws Exception {
         Path projectDir = tempDir.resolve("project");
         Files.createDirectories(projectDir);
-        Path configFile = projectDir.resolve("project.xcfg");
+        Path configFile = projectDir.resolve("chibiforge.xcfg");
         Files.copy(fixturePath("configs/simple.xcfg"), configFile);
 
         Path componentDir = projectDir.resolve("components")
@@ -44,7 +44,7 @@ class GenerateCommandTest {
         copyDirectory(fixturePath("org.chibios.chibiforge.components.hal.stm32f4xx"), componentDir);
 
         int exitCode = new CommandLine(new GenerateCommand())
-                .execute("--config", configFile.toString(), "--dry-run");
+                .execute("--project", projectDir.toString(), "--dry-run");
 
         assertThat(exitCode).isZero();
     }
@@ -53,7 +53,7 @@ class GenerateCommandTest {
     void autoDiscoversSidecarComponentRoots(@TempDir Path tempDir) throws Exception {
         Path projectDir = tempDir.resolve("project");
         Files.createDirectories(projectDir);
-        Path configFile = projectDir.resolve("project.xcfg");
+        Path configFile = projectDir.resolve("chibiforge.xcfg");
         Files.copy(fixturePath("configs/simple.xcfg"), configFile);
 
         Path externalRoot = tempDir.resolve("external-components");
@@ -67,7 +67,7 @@ class GenerateCommandTest {
                 """);
 
         int exitCode = new CommandLine(new GenerateCommand())
-                .execute("--config", configFile.toString(), "--dry-run");
+                .execute("--project", projectDir.toString(), "--dry-run");
 
         assertThat(exitCode).isZero();
     }

@@ -41,9 +41,9 @@ import java.util.concurrent.Callable;
 )
 public class GenerateCommand implements Callable<Integer> {
 
-    @Option(names = {"--config", "-c"},
-            description = "Path to the configuration file (default: env CHIBIFORGE_CONFIG_PATH or ./chibiforge.xcfg)")
-    private String configPath;
+    @Option(names = {"--project", "-p"},
+            description = "Path to the project root (default: env CHIBIFORGE_PROJECT_ROOT or current directory)")
+    private String projectRoot;
 
     @Option(names = {"--components"},
             description = "Preferred filesystem components root (overrides auto-discovered roots; default: env CHIBIFORGE_COMPONENTS_ROOT)")
@@ -69,7 +69,8 @@ public class GenerateCommand implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
-            Path resolvedConfig = resolveConfigPath();
+            Path resolvedProjectRoot = resolveProjectRoot().toAbsolutePath().normalize();
+            Path resolvedConfig = resolvedProjectRoot.resolve("chibiforge.xcfg");
 
             if (!Files.exists(resolvedConfig)) {
                 System.err.println("Error: Configuration file not found: " + resolvedConfig);
@@ -80,10 +81,7 @@ public class GenerateCommand implements Callable<Integer> {
                 return 1;
             }
 
-            Path configRoot = resolvedConfig.getParent();
-            if (configRoot == null) {
-                configRoot = Path.of(".");
-            }
+            Path configRoot = resolvedProjectRoot;
 
             ResolvedComponentSources resolvedSources = resolveComponentSources(resolvedConfig);
             for (String warning : resolvedSources.warnings()) {
@@ -97,8 +95,8 @@ public class GenerateCommand implements Callable<Integer> {
             }
 
             if (verbose) {
+                System.out.println("Project root:       " + resolvedProjectRoot);
                 System.out.println("Configuration file: " + resolvedConfig.toAbsolutePath());
-                System.out.println("Configuration root: " + configRoot.toAbsolutePath());
                 for (Path componentRoot : resolvedSources.roots()) {
                     System.out.println("Component root:     " + componentRoot.toAbsolutePath());
                 }
@@ -140,15 +138,15 @@ public class GenerateCommand implements Callable<Integer> {
         }
     }
 
-    private Path resolveConfigPath() {
-        if (configPath != null) {
-            return Path.of(configPath);
+    private Path resolveProjectRoot() {
+        if (projectRoot != null) {
+            return Path.of(projectRoot);
         }
-        String envPath = System.getenv("CHIBIFORGE_CONFIG_PATH");
-        if (envPath != null && !envPath.isBlank()) {
-            return Path.of(envPath);
+        String envRoot = System.getenv("CHIBIFORGE_PROJECT_ROOT");
+        if (envRoot != null && !envRoot.isBlank()) {
+            return Path.of(envRoot);
         }
-        return Path.of("chibiforge.xcfg");
+        return Path.of(".");
     }
 
     private Path resolveComponentsRoot() {

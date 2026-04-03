@@ -59,6 +59,7 @@ Component sources are grouped into categories:
 
 | Category | Description                        |
 | -------- | ---------------------------------- |
+| preferred| explicitly supplied by the tool or caller |
 | project  | project-local components           |
 | user     | user-defined external sources      |
 | system   | system-wide or environment sources |
@@ -96,6 +97,18 @@ System-level sources MAY be defined via:
 
 * environment variables
 * tool configuration
+
+---
+
+### 5.4 Preferred Sources
+
+Tools MAY accept explicitly supplied preferred roots, for example:
+
+* CLI `--components`
+* CLI `--plugins`
+* equivalent GUI or integration settings
+
+Preferred roots take precedence over auto-discovered roots.
 
 ---
 
@@ -138,9 +151,10 @@ Example:
 
 Sources SHALL be processed in the following order:
 
-1. project sources
-2. user sources (in declared order)
-3. system sources
+1. preferred sources
+2. project sources
+3. user sources (in declared order)
+4. system sources
 
 Later sources SHALL NOT override earlier ones.
 
@@ -229,13 +243,20 @@ Tools SHALL:
 
 Tools MAY support environment variables for defining system sources.
 
-Example:
+Primary example:
 
 ```text id="i7pxy7"
-CHIBIFORGE_COMPONENT_PATH=/opt/chibiforge/components
+CHIBIFORGE_COMPONENTS=/opt/chibiforge/components:/srv/chibiforge/components
 ```
 
-Multiple paths MAY be separated by platform-specific separators.
+Legacy tool-specific defaults MAY also be supported, for example:
+
+```text
+CHIBIFORGE_COMPONENTS_ROOT=/opt/chibiforge/components
+CHIBIFORGE_PLUGINS_ROOT=/opt/chibiforge/plugins
+```
+
+Multiple paths in `CHIBIFORGE_COMPONENTS` MAY be separated by platform-specific separators.
 
 ---
 
@@ -285,4 +306,3 @@ This specification does NOT define:
 * schema semantics
 
 ---
-

@@ -2,20 +2,20 @@
 
 ## **1. Critical Gaps (Blockers)**
 
-### **1.1 `chibiforge.xcfg` XSD**
+### **1.1 Version-Aware Component Binding**
 
-* Define a formal XSD for `chibiforge.xcfg`
-* Align with:
+* Implement exact `(component id, component version)` resolution in loader, registry, generator, and UI
+* Reject silent fallback to a different component version
+* Define and implement explicit GUI upgrade flow for newer component versions
+* Surface version mismatch diagnostics clearly during load/generation
 
-  * component schema (`schema.xml`)
-  * preset XSD (`chibiforge_preset.xsd`)
-* Must cover:
+---
 
-  * `<component>` structure
-  * `<sections>` / `<property>` serialization
-  * multi-target (`default` + `<targetValue>`)
-  * list encoding
-* This is the **only true structural blocker**
+### **1.2 Schema-Aware Configuration Validation**
+
+* Validate each `<component>` payload against its resolved component schema during load
+* Report unknown sections/properties and incompatible payload structure as warnings/errors
+* Keep `chibiforge_xcfg.xsd` as envelope validation only
 
 ---
 
@@ -23,29 +23,32 @@
 
 ### **2.1 Preset Model Integration**
 
-* Merge v12 preset semantics into main specification
-* Remove reliance on upgrade document
-* Ensure alignment across:
+* Keep split `v13` spec set aligned with:
 
-  * main spec
   * preset XSD
   * UI spec (loading / logging behavior)
+  * config version-binding rules
 
 ---
 
 ### **2.2 Full Spec Regeneration**
 
-* Regenerate unified specification document
-* Eliminate:
-
-  * v11 + upgrade fragmentation
-  * duplicated or outdated sections
+* Maintain cross-document consistency in the split `v13` corpus
 * Ensure consistent terminology:
 
   * schema paths
   * normalization
   * targets
+  * version binding
   * list semantics
+
+---
+
+### **2.3 Deferred Contract Items**
+
+Tracked but intentionally out of the current normative spec:
+
+* preset metadata embedded in `component/schema.xml`
 
 ---
 
@@ -140,7 +143,10 @@ Not required for v1, but tracked:
 ## **7. Summary**
 
 * Core architecture: **complete**
-* Major blocker: **missing `chibiforge.xcfg` XSD**
+* Major blockers:
+
+  * version-aware component binding
+  * schema-aware configuration validation
 * Remaining work:
 
   * spec consolidation
@@ -151,8 +157,8 @@ Not required for v1, but tracked:
 
 ## **8. Priority Order**
 
-1. `chibiforge.xcfg` XSD
-2. Merge preset v12 into main spec
+1. Implement version-aware component binding
+2. Implement schema-aware configuration validation
 3. Implement real components
 4. Validate UI behavior
 5. Expand ecosystem
@@ -160,4 +166,3 @@ Not required for v1, but tracked:
 ---
 
 # **End of Document**
-

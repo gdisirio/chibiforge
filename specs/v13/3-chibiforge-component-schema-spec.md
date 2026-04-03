@@ -58,6 +58,7 @@ The root element is:
 
 ```xml id="d7xk3u"
 <component
+    xmlns="http://chibiforge/schema/component"
     id="..."
     name="..."
     version="..."
@@ -438,4 +439,3 @@ This specification does NOT define:
 * UI rendering details
 
 ---
-
