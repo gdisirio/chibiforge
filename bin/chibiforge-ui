@@ -3,5 +3,8 @@
 DIR="$(cd "$(dirname "$0")" && pwd)"
 CACHE_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}"
 CACHE_DIR="$CACHE_ROOT/chibiforge/openjfx"
+LOG_DIR="$CACHE_ROOT/chibiforge"
+LOG_FILE="$LOG_DIR/ui.log"
 mkdir -p "$CACHE_DIR"
-exec java -Djavafx.cachedir="$CACHE_DIR" -cp "$DIR/chibiforge-ui.jar:$DIR/chibiforge.jar" org.chibios.chibiforge.ui.ChibiForgeLauncher "$@"
+mkdir -p "$LOG_DIR"
+nohup java -Djavafx.cachedir="$CACHE_DIR" -cp "$DIR/chibiforge-ui.jar:$DIR/chibiforge.jar" org.chibios.chibiforge.ui.ChibiForgeLauncher "$@" >>"$LOG_FILE" 2>&1 </dev/null &
