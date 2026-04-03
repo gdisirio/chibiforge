@@ -116,7 +116,7 @@ class JarComponentIntegrationTest {
                     schemaVersion="1.0">
                   <targets><target id="default"/></targets>
                   <components>
-                    <component id="test.jarcomp">
+                    <component id="test.jarcomp" version="1.0.0">
                       <settings>
                         <message>Hello from JAR</message>
                       </settings>
@@ -161,7 +161,7 @@ class JarComponentIntegrationTest {
                     schemaVersion="1.0">
                   <targets><target id="default"/></targets>
                   <components>
-                    <component id="test.jarcomp">
+                    <component id="test.jarcomp" version="1.0.0">
                       <settings><message>test</message></settings>
                     </component>
                   </components>
@@ -192,7 +192,7 @@ class JarComponentIntegrationTest {
                     schemaVersion="1.0">
                   <targets><target id="default"/></targets>
                   <components>
-                    <component id="test.jarcomp">
+                    <component id="test.jarcomp" version="1.0.0">
                       <settings><message>test</message></settings>
                     </component>
                   </components>
@@ -220,7 +220,7 @@ class JarComponentIntegrationTest {
                     xmlns="http://chibiforge/schema/component"
                     id="test.jarcomp"
                     name="Filesystem Override"
-                    version="2.0.0"
+                    version="1.0.0"
                     hidden="false"
                     is_platform="false">
                   <description>Filesystem override of JAR component.</description>
@@ -251,7 +251,7 @@ class JarComponentIntegrationTest {
                     schemaVersion="1.0">
                   <targets><target id="default"/></targets>
                   <components>
-                    <component id="test.jarcomp">
+                    <component id="test.jarcomp" version="1.0.0">
                       <settings><message>overridden</message></settings>
                     </component>
                   </components>

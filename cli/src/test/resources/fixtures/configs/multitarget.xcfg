@@ -11,7 +11,7 @@
   </targets>
 
   <components>
-    <component id="test.hello">
+    <component id="test.hello" version="1.0.0">
       <settings>
         <!-- Single-target: same value for all targets -->
         <greeting>Hello</greeting>

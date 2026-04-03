@@ -58,7 +58,7 @@ class PresetApplierTest {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <chibiforgeConfiguration xmlns="http://chibiforge/schema/config" toolVersion="1.0.0" schemaVersion="1.0">
                   <components>
-                    <component id="org.chibios.chibiforge.components.hal.stm32f4xx">
+                    <component id="org.chibios.chibiforge.components.hal.stm32f4xx" version="1.0.0">
                       <initialization_settings>
                         <do_not_init>false</do_not_init>
                         <vdd>300</vdd>
@@ -114,7 +114,7 @@ class PresetApplierTest {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <chibiforgeConfiguration xmlns="http://chibiforge/schema/config" toolVersion="1.0.0" schemaVersion="1.0">
                   <components>
-                    <component id="org.chibios.chibiforge.components.hal.stm32f4xx">
+                    <component id="org.chibios.chibiforge.components.hal.stm32f4xx" version="1.0.0">
                       <initialization_settings>
                         <board_name default="BASE_NAME">
                           <targetValue target="debug">DBG_NAME</targetValue>
@@ -155,7 +155,7 @@ class PresetApplierTest {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <chibiforgeConfiguration xmlns="http://chibiforge/schema/config" toolVersion="1.0.0" schemaVersion="1.0">
                   <components>
-                    <component id="org.chibios.chibiforge.components.hal.stm32f4xx">
+                    <component id="org.chibios.chibiforge.components.hal.stm32f4xx" version="1.0.0">
                       <initialization_settings>
                         <board_name default="BASE_NAME"/>
                       </initialization_settings>
@@ -238,7 +238,7 @@ class PresetApplierTest {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <chibiforgeConfiguration xmlns="http://chibiforge/schema/config" toolVersion="1.0.0" schemaVersion="1.0">
                   <components>
-                    <component id="org.chibios.chibiforge.components.hal.stm32f4xx">
+                    <component id="org.chibios.chibiforge.components.hal.stm32f4xx" version="1.0.0">
                       <initialization_settings>
                         <do_not_init>false</do_not_init>
                         <vdd>300</vdd>
@@ -298,7 +298,7 @@ class PresetApplierTest {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <chibiforgeConfiguration xmlns="http://chibiforge/schema/config" toolVersion="1.0.0" schemaVersion="1.0">
                   <components>
-                    <component id="org.chibios.chibiforge.components.hal.stm32f4xx">
+                    <component id="org.chibios.chibiforge.components.hal.stm32f4xx" version="1.0.0">
                       <initialization_settings>
                         <do_not_init>false</do_not_init>
                         <vdd>300</vdd>

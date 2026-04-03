@@ -38,10 +38,20 @@ public class ComponentRegistry {
 
     private static final Logger log = LoggerFactory.getLogger(ComponentRegistry.class);
 
-    private final Map<String, ComponentContainer> containers;
+    private record RegisteredComponent(ComponentContainer container, SemanticVersion version, int precedence) {
+    }
 
-    private ComponentRegistry(Map<String, ComponentContainer> containers) {
-        this.containers = Collections.unmodifiableMap(containers);
+    private final Map<String, RegisteredComponent> preferredContainers;
+    private final Map<String, NavigableMap<SemanticVersion, RegisteredComponent>> containersByIdAndVersion;
+
+    private ComponentRegistry(Map<String, RegisteredComponent> preferredContainers,
+                              Map<String, NavigableMap<SemanticVersion, RegisteredComponent>> containersByIdAndVersion) {
+        this.preferredContainers = Collections.unmodifiableMap(preferredContainers);
+        LinkedHashMap<String, NavigableMap<SemanticVersion, RegisteredComponent>> frozen = new LinkedHashMap<>();
+        for (Map.Entry<String, NavigableMap<SemanticVersion, RegisteredComponent>> entry : containersByIdAndVersion.entrySet()) {
+            frozen.put(entry.getKey(), Collections.unmodifiableNavigableMap(new TreeMap<>(entry.getValue())));
+        }
+        this.containersByIdAndVersion = Collections.unmodifiableMap(frozen);
     }
 
     /**
@@ -50,20 +60,21 @@ public class ComponentRegistry {
      * @param pluginsRoot plugin JARs root (may be null)
      */
     public static ComponentRegistry build(Path componentsRoot, Path pluginsRoot) throws IOException {
-        Map<String, ComponentContainer> map = new LinkedHashMap<>();
+        Map<String, RegisteredComponent> preferred = new LinkedHashMap<>();
+        Map<String, NavigableMap<SemanticVersion, RegisteredComponent>> exact = new LinkedHashMap<>();
 
         // Load JAR containers first (filesystem overrides JAR for same ID)
         if (pluginsRoot != null) {
-            scanPlugins(pluginsRoot, map);
+            scanPlugins(pluginsRoot, preferred, exact, 0);
         }
 
         // Load filesystem containers (override JARs)
         if (componentsRoot != null) {
-            scanFilesystem(componentsRoot, map);
+            scanFilesystem(componentsRoot, preferred, exact, 1);
         }
 
-        log.info("Component registry: {} component(s) discovered", map.size());
-        return new ComponentRegistry(map);
+        log.info("Component registry: {} component(s) discovered", preferred.size());
+        return new ComponentRegistry(preferred, exact);
     }
 
     /**
@@ -72,17 +83,19 @@ public class ComponentRegistry {
      * override later ones.
      */
     public static ComponentRegistry build(List<Path> componentRoots) throws IOException {
-        Map<String, ComponentContainer> map = new LinkedHashMap<>();
+        Map<String, RegisteredComponent> preferred = new LinkedHashMap<>();
+        Map<String, NavigableMap<SemanticVersion, RegisteredComponent>> exact = new LinkedHashMap<>();
 
         if (componentRoots != null) {
+            int precedence = 0;
             ListIterator<Path> it = componentRoots.listIterator(componentRoots.size());
             while (it.hasPrevious()) {
-                scanRoot(it.previous(), map);
+                scanRoot(it.previous(), preferred, exact, precedence++);
             }
         }
 
-        log.info("Component registry: {} component(s) discovered", map.size());
-        return new ComponentRegistry(map);
+        log.info("Component registry: {} component(s) discovered", preferred.size());
+        return new ComponentRegistry(preferred, exact);
     }
 
     /**
@@ -99,26 +112,31 @@ public class ComponentRegistry {
         return build(null, pluginsRoot);
     }
 
-    private static void scanRoot(Path root, Map<String, ComponentContainer> map) throws IOException {
+    private static void scanRoot(Path root, Map<String, RegisteredComponent> preferred,
+                                 Map<String, NavigableMap<SemanticVersion, RegisteredComponent>> exact,
+                                 int precedence) throws IOException {
         if (root == null) {
             return;
         }
         if (Files.isRegularFile(root) && root.getFileName().toString().endsWith(".jar")) {
-            scanPluginJar(root, map);
+            scanPluginJar(root, preferred, exact, precedence);
             return;
         }
         if (!Files.isDirectory(root)) {
             return;
         }
         if (Files.exists(root.resolve("component").resolve("schema.xml"))) {
-            registerFilesystemContainer(new FilesystemContainer(root), map);
+            registerContainer(new FilesystemContainer(root), preferred, exact, precedence);
             return;
         }
-        scanPlugins(root, map);
-        scanFilesystem(root, map);
+        scanPlugins(root, preferred, exact, precedence);
+        scanFilesystem(root, preferred, exact, precedence);
     }
 
-    private static void scanFilesystem(Path componentsRoot, Map<String, ComponentContainer> map) throws IOException {
+    private static void scanFilesystem(Path componentsRoot,
+                                       Map<String, RegisteredComponent> preferred,
+                                       Map<String, NavigableMap<SemanticVersion, RegisteredComponent>> exact,
+                                       int precedence) throws IOException {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(componentsRoot)) {
             for (Path dir : stream) {
                 if (!Files.isDirectory(dir)) {
@@ -130,42 +148,71 @@ public class ComponentRegistry {
                     continue;
                 }
 
-                registerFilesystemContainer(new FilesystemContainer(dir), map);
+                registerContainer(new FilesystemContainer(dir), preferred, exact, precedence);
             }
         }
     }
 
-    private static void scanPlugins(Path pluginsRoot, Map<String, ComponentContainer> map) throws IOException {
+    private static void scanPlugins(Path pluginsRoot,
+                                    Map<String, RegisteredComponent> preferred,
+                                    Map<String, NavigableMap<SemanticVersion, RegisteredComponent>> exact,
+                                    int precedence) throws IOException {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(pluginsRoot, "*.jar")) {
             for (Path jarPath : stream) {
-                scanPluginJar(jarPath, map);
+                scanPluginJar(jarPath, preferred, exact, precedence);
             }
         }
     }
 
-    private static void scanPluginJar(Path jarPath, Map<String, ComponentContainer> map) throws IOException {
+    private static void scanPluginJar(Path jarPath,
+                                      Map<String, RegisteredComponent> preferred,
+                                      Map<String, NavigableMap<SemanticVersion, RegisteredComponent>> exact,
+                                      int precedence) throws IOException {
         JarContainer container = JarContainer.openIfValid(jarPath);
         if (container == null) {
             log.debug("Skipping {}: not a ChibiForge plugin", jarPath.getFileName());
             return;
         }
-
-        String id = container.getId();
-        if (map.containsKey(id)) {
-            log.warn("Duplicate plugin component ID '{}': {} overrides previous", id, jarPath);
-        }
-        map.put(id, container);
-        log.debug("Discovered plugin component '{}' in {}", id, jarPath);
+        registerContainer(container, preferred, exact, precedence);
     }
 
-    private static void registerFilesystemContainer(FilesystemContainer container,
-                                                    Map<String, ComponentContainer> map) {
-        String id = container.getId();
-        if (map.containsKey(id)) {
-            log.info("Filesystem component '{}' overrides JAR/previous source", id);
+    private static void registerContainer(ComponentContainer container,
+                                          Map<String, RegisteredComponent> preferred,
+                                          Map<String, NavigableMap<SemanticVersion, RegisteredComponent>> exact,
+                                          int precedence) {
+        try {
+            String id = container.getId();
+            SemanticVersion version = SemanticVersion.parse(container.loadDefinition().getVersion());
+            RegisteredComponent registered = new RegisteredComponent(container, version, precedence);
+
+            NavigableMap<SemanticVersion, RegisteredComponent> byVersion =
+                    exact.computeIfAbsent(id, ignored -> new TreeMap<>());
+            RegisteredComponent existing = byVersion.get(version);
+            if (existing == null || precedence >= existing.precedence()) {
+                if (existing != null) {
+                    log.info("Component '{}' version '{}' overrides previous source", id, version.text());
+                }
+                byVersion.put(version, registered);
+            }
+
+            RegisteredComponent currentPreferred = preferred.get(id);
+            if (currentPreferred == null
+                    || precedence > currentPreferred.precedence()
+                    || (precedence == currentPreferred.precedence()
+                    && version.compareTo(currentPreferred.version()) > 0)) {
+                if (currentPreferred != null && precedence > currentPreferred.precedence()) {
+                    log.info("Higher-precedence component '{}' selected from preferred source", id);
+                }
+                preferred.put(id, registered);
+            }
+
+            log.debug("Discovered component '{}' version '{}'", id, version.text());
+        } catch (Exception e) {
+            if (e instanceof IllegalArgumentException runtime) {
+                throw runtime;
+            }
+            throw new IllegalArgumentException("Failed to register component container", e);
         }
-        map.put(id, container);
-        log.debug("Discovered filesystem component '{}' at {}", id, container.getContainerRoot());
     }
 
     /**
@@ -173,24 +220,71 @@ public class ComponentRegistry {
      * @throws NoSuchElementException if not found
      */
     public ComponentContainer lookup(String componentId) {
-        ComponentContainer container = containers.get(componentId);
-        if (container == null) {
+        RegisteredComponent registered = preferredContainers.get(componentId);
+        if (registered == null) {
             throw new NoSuchElementException(
                     "Component '" + componentId + "' not found in registry. " +
-                    "Available: " + containers.keySet());
+                    "Available: " + preferredContainers.keySet());
         }
-        return container;
+        return registered.container();
+    }
+
+    /**
+     * Look up a component container by exact ID and version.
+     * @throws NoSuchElementException if not found
+     */
+    public ComponentContainer lookup(String componentId, String version) {
+        NavigableMap<SemanticVersion, RegisteredComponent> versions = containersByIdAndVersion.get(componentId);
+        if (versions == null) {
+            throw new NoSuchElementException(
+                    "Component '" + componentId + "' not found in registry. " +
+                    "Available: " + preferredContainers.keySet());
+        }
+
+        SemanticVersion requested = SemanticVersion.parse(version);
+        RegisteredComponent registered = versions.get(requested);
+        if (registered == null) {
+            throw new NoSuchElementException(
+                    "Component '" + componentId + "' version '" + version + "' not found in registry. " +
+                    "Available versions: " + availableVersions(componentId));
+        }
+        return registered.container();
+    }
+
+    public List<String> availableVersions(String componentId) {
+        NavigableMap<SemanticVersion, RegisteredComponent> versions = containersByIdAndVersion.get(componentId);
+        if (versions == null || versions.isEmpty()) {
+            return List.of();
+        }
+        return versions.keySet().stream()
+                .map(SemanticVersion::text)
+                .toList();
+    }
+
+    public Optional<ComponentContainer> findLatestLaterVersion(String componentId, String version) {
+        NavigableMap<SemanticVersion, RegisteredComponent> versions = containersByIdAndVersion.get(componentId);
+        if (versions == null || versions.isEmpty()) {
+            return Optional.empty();
+        }
+        SemanticVersion requested = SemanticVersion.parse(version);
+        Map.Entry<SemanticVersion, RegisteredComponent> later = versions.higherEntry(requested);
+        if (later == null) {
+            return Optional.empty();
+        }
+        return Optional.of(versions.lastEntry().getValue().container());
     }
 
     public Collection<ComponentContainer> all() {
-        return containers.values();
+        return preferredContainers.values().stream()
+                .map(RegisteredComponent::container)
+                .toList();
     }
 
     public Set<String> componentIds() {
-        return containers.keySet();
+        return preferredContainers.keySet();
     }
 
     public int size() {
-        return containers.size();
+        return preferredContainers.size();
     }
 }

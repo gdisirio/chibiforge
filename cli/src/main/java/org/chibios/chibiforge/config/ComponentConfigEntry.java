@@ -26,14 +26,17 @@ import org.w3c.dom.Element;
  */
 public class ComponentConfigEntry {
     private final String componentId;
+    private final String componentVersion;
     private final Element configElement;
 
-    public ComponentConfigEntry(String componentId, Element configElement) {
+    public ComponentConfigEntry(String componentId, String componentVersion, Element configElement) {
         this.componentId = componentId;
+        this.componentVersion = componentVersion;
         this.configElement = configElement;
     }
 
     public String getComponentId() { return componentId; }
+    public String getComponentVersion() { return componentVersion; }
 
     /**
      * Returns the raw {@code <component>} element from the xcfg file.
@@ -43,6 +46,7 @@ public class ComponentConfigEntry {
 
     @Override
     public String toString() {
-        return "ComponentConfigEntry{componentId='" + componentId + "'}";
+        return "ComponentConfigEntry{componentId='" + componentId +
+                "', componentVersion='" + componentVersion + "'}";
     }
 }

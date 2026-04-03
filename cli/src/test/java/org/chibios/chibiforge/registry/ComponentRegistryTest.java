@@ -154,6 +154,31 @@ class ComponentRegistryTest {
     }
 
     @Test
+    void supportsExactVersionLookupAndLaterVersionDiscovery(@TempDir Path tempDir) throws Exception {
+        createPluginJar(tempDir.resolve("test.component_1.0.0.jar"), "test.component", "test.component", "1.0.0");
+        createPluginJar(tempDir.resolve("test.component_1.2.0.jar"), "test.component", "test.component", "1.2.0");
+
+        ComponentRegistry registry = ComponentRegistry.fromPlugins(tempDir);
+
+        assertThat(registry.lookup("test.component").loadDefinition().getVersion()).isEqualTo("1.2.0");
+        assertThat(registry.lookup("test.component", "1.0.0").loadDefinition().getVersion()).isEqualTo("1.0.0");
+        assertThat(registry.lookup("test.component", "1.2.0").loadDefinition().getVersion()).isEqualTo("1.2.0");
+        assertThat(registry.availableVersions("test.component")).containsExactly("1.0.0", "1.2.0");
+        assertThat(registry.findLatestLaterVersion("test.component", "1.0.0"))
+                .isPresent()
+                .get()
+                .extracting(container -> {
+                    try {
+                        return container.loadDefinition().getVersion();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .isEqualTo("1.2.0");
+        assertThat(registry.findLatestLaterVersion("test.component", "1.2.0")).isEmpty();
+    }
+
+    @Test
     void rejectsFilesystemComponentWithMismatchedDirectoryName(@TempDir Path tempDir) throws IOException {
         createComponentInDirectory(tempDir, "wrong.name", "test.component", "Invalid");
 

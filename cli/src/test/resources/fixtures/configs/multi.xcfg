@@ -11,12 +11,12 @@
   </targets>
 
   <components>
-    <component id="org.chibios.chibiforge.components.hal.stm32f4xx">
+    <component id="org.chibios.chibiforge.components.hal.stm32f4xx" version="1.0.0">
       <initialization_settings>
         <vdd>300</vdd>
       </initialization_settings>
     </component>
-    <component id="org.chibios.chibiforge.components.board.stm32f4xx">
+    <component id="org.chibios.chibiforge.components.board.stm32f4xx" version="1.0.0">
       <board_settings>
         <board_name>MY_BOARD</board_name>
       </board_settings>

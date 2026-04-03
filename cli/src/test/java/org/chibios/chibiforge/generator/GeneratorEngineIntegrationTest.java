@@ -51,7 +51,7 @@ class GeneratorEngineIntegrationTest {
                     <target id="default"/>
                   </targets>
                   <components>
-                    <component id="test.hello">
+                    <component id="test.hello" version="1.0.0">
                       <settings>
                         <greeting>Hi there</greeting>
                         <count>5</count>
@@ -126,7 +126,7 @@ class GeneratorEngineIntegrationTest {
                     schemaVersion="1.0">
                   <targets><target id="default"/></targets>
                   <components>
-                    <component id="test.hello">
+                    <component id="test.hello" version="1.0.0">
                       <settings>
                         <greeting>Hello</greeting>
                         <count>3</count>
@@ -178,7 +178,7 @@ class GeneratorEngineIntegrationTest {
                     schemaVersion="1.0">
                   <targets><target id="default"/></targets>
                   <components>
-                    <component id="test.hello">
+                    <component id="test.hello" version="1.0.0">
                       <settings>
                         <greeting>Hello</greeting>
                         <count>1</count>
@@ -214,7 +214,7 @@ class GeneratorEngineIntegrationTest {
                 <target id="release"/>
               </targets>
               <components>
-                <component id="test.hello">
+                <component id="test.hello" version="1.0.0">
                   <settings>
                     <greeting>Hello</greeting>
                     <count default="5">

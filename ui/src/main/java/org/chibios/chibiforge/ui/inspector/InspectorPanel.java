@@ -131,7 +131,8 @@ public class InspectorPanel {
             for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
                 String name = entry.getComponentId();
                 try {
-                    ComponentContainer container = model.getRegistry().lookup(entry.getComponentId());
+                    ComponentContainer container = model.getRegistry()
+                            .lookup(entry.getComponentId(), entry.getComponentVersion());
                     name = container.loadDefinition().getName();
                 } catch (Exception ignored) {}
                 TreeItem<String> item = new TreeItem<>(name);

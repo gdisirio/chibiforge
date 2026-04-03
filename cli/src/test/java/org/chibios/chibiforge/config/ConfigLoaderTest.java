@@ -40,6 +40,7 @@ class ConfigLoaderTest {
         assertThat(config.getComponents()).hasSize(1);
         assertThat(config.getComponents().get(0).getComponentId())
                 .isEqualTo("org.chibios.chibiforge.components.hal.stm32f4xx");
+        assertThat(config.getComponents().get(0).getComponentVersion()).isEqualTo("1.0.0");
     }
 
     @Test
@@ -49,8 +50,10 @@ class ConfigLoaderTest {
         assertThat(config.getComponents()).hasSize(2);
         assertThat(config.getComponents().get(0).getComponentId())
                 .isEqualTo("org.chibios.chibiforge.components.hal.stm32f4xx");
+        assertThat(config.getComponents().get(0).getComponentVersion()).isEqualTo("1.0.0");
         assertThat(config.getComponents().get(1).getComponentId())
                 .isEqualTo("org.chibios.chibiforge.components.board.stm32f4xx");
+        assertThat(config.getComponents().get(1).getComponentVersion()).isEqualTo("1.0.0");
     }
 
     @Test
@@ -117,6 +120,20 @@ class ConfigLoaderTest {
         assertThat(config.getComponents()).isEmpty();
         assertThat(loaded.rootElement().getLocalName()).isEqualTo("chibiforgeConfiguration");
         assertThat(loaded.configuration().getComponents()).isEmpty();
+    }
+
+    @Test
+    void rejectsComponentWithoutVersion() {
+        assertThatThrownBy(() -> loader.load(new java.io.ByteArrayInputStream("""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <chibiforgeConfiguration xmlns="http://chibiforge/schema/config" toolVersion="1.0.0" schemaVersion="1.0">
+                  <components>
+                    <component id="test.component"/>
+                  </components>
+                </chibiforgeConfiguration>
+                """.getBytes(java.nio.charset.StandardCharsets.UTF_8))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Missing required attribute 'version'");
     }
 
     private ChibiForgeConfiguration loadFixture(String name) throws Exception {

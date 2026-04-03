@@ -9,7 +9,7 @@
   </targets>
 
   <components>
-    <component id="org.chibios.chibiforge.components.hal.stm32f4xx">
+    <component id="org.chibios.chibiforge.components.hal.stm32f4xx" version="1.0.0">
       <initialization_settings>
         <do_not_init>false</do_not_init>
         <vdd>300</vdd>

@@ -291,6 +291,7 @@ public class MainWindow {
             ConfigLoader loader = new ConfigLoader();
             ConfigLoader.LoadedConfiguration loaded = loader.loadWithDocument(configFile);
             applyConfiguration(loaded.configuration(), loaded.rootElement(), configFile.toAbsolutePath());
+            promptForComponentVersionUpgrades();
             rememberRecentFile(configFile);
             showComponentsView();
 
@@ -404,15 +405,12 @@ public class MainWindow {
         List<ComponentDefinition> definitions = new ArrayList<>();
         for (ComponentConfigEntry entry : config.getComponents()) {
             try {
-                ComponentContainer container = registry.lookup(entry.getComponentId());
+                ComponentContainer container = registry.lookup(entry.getComponentId(), entry.getComponentVersion());
                 definitions.add(container.loadDefinition());
             } catch (Exception ignored) {
                 model.getUnresolvedComponents().add(entry.getComponentId());
+                warnings.add(buildVersionResolutionWarning(entry, registry));
             }
-        }
-
-        for (String unresolved : model.getUnresolvedComponents()) {
-            warnings.add("Component '" + unresolved + "' could not be resolved from the discovered component roots.");
         }
         warnings.addAll(checker.check(definitions));
         model.getWarnings().setAll(warnings);
@@ -447,12 +445,6 @@ public class MainWindow {
         rootElement.setAttribute("toolVersion", DEFAULT_TOOL_VERSION);
         rootElement.setAttribute("schemaVersion", DEFAULT_SCHEMA_VERSION);
         doc.appendChild(rootElement);
-
-        Element targetsElement = doc.createElementNS(CONFIG_NS, "targets");
-        Element targetElement = doc.createElementNS(CONFIG_NS, "target");
-        targetElement.setAttribute("id", "default");
-        targetsElement.appendChild(targetElement);
-        rootElement.appendChild(targetsElement);
 
         Element componentsElement = doc.createElementNS(CONFIG_NS, "components");
         rootElement.appendChild(componentsElement);
@@ -491,18 +483,10 @@ public class MainWindow {
             return;
         }
         try {
-            ComponentContainer container = model.getRegistry().lookup(componentId);
-            ComponentDefinition def = container.loadDefinition();
-
-            // Find the config entry for this component
-            ComponentConfigEntry configEntry = null;
-            for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
-                if (entry.getComponentId().equals(componentId)) {
-                    configEntry = entry;
-                    break;
-                }
-            }
+            ComponentConfigEntry configEntry = findConfigEntry(componentId);
             if (configEntry == null) return;
+            ComponentContainer container = lookupConfiguredContainer(configEntry);
+            ComponentDefinition def = container.loadDefinition();
 
             breadcrumb.setPath("Components", def.getName());
             configForm.loadComponent(def, configEntry, container);
@@ -587,6 +571,7 @@ public class MainWindow {
             Document doc = componentsElement.getOwnerDocument();
             Element newComp = doc.createElementNS(componentsElement.getNamespaceURI(), "component");
             newComp.setAttribute("id", compId);
+            newComp.setAttribute("version", model.getRegistry().lookup(compId).loadDefinition().getVersion());
             componentsElement.appendChild(newComp);
 
             refreshConfigurationFromDocument();
@@ -625,8 +610,102 @@ public class MainWindow {
         }
     }
 
+    private ComponentConfigEntry findConfigEntry(String componentId) {
+        if (model.getConfiguration() == null) {
+            return null;
+        }
+        for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
+            if (entry.getComponentId().equals(componentId)) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    private ComponentContainer lookupConfiguredContainer(ComponentConfigEntry entry) {
+        return model.getRegistry().lookup(entry.getComponentId(), entry.getComponentVersion());
+    }
+
+    private String buildVersionResolutionWarning(ComponentConfigEntry entry, ComponentRegistry registry) {
+        String id = entry.getComponentId();
+        String version = entry.getComponentVersion();
+        return registry.findLatestLaterVersion(id, version)
+                .map(container -> {
+                    try {
+                        String newer = container.loadDefinition().getVersion();
+                        return "Component '" + id + "' version '" + version
+                                + "' could not be resolved. A later version '" + newer + "' is available.";
+                    } catch (Exception e) {
+                        return "Component '" + id + "' version '" + version
+                                + "' could not be resolved from the discovered component roots.";
+                    }
+                })
+                .orElse("Component '" + id + "' version '" + version
+                        + "' could not be resolved from the discovered component roots.");
+    }
+
+    private void promptForComponentVersionUpgrades() {
+        if (model.getConfiguration() == null || model.getRegistry() == null) {
+            return;
+        }
+
+        boolean changed = false;
+        List<ComponentConfigEntry> entries = new ArrayList<>(model.getConfiguration().getComponents());
+        for (ComponentConfigEntry entry : entries) {
+            try {
+                model.getRegistry().lookup(entry.getComponentId(), entry.getComponentVersion());
+                continue;
+            } catch (Exception ignored) {
+                // Keep checking for upgrade candidates.
+            }
+
+            ComponentContainer newerContainer = model.getRegistry()
+                    .findLatestLaterVersion(entry.getComponentId(), entry.getComponentVersion())
+                    .orElse(null);
+            if (newerContainer == null) {
+                continue;
+            }
+
+            try {
+                ComponentDefinition newerDefinition = newerContainer.loadDefinition();
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                        "Component '" + entry.getComponentId() + "' version '" + entry.getComponentVersion()
+                                + "' is not available.\nUpgrade to later version '"
+                                + newerDefinition.getVersion() + "'?",
+                        ButtonType.YES, ButtonType.NO);
+                alert.setTitle("Component Upgrade Available");
+                alert.setHeaderText(newerDefinition.getName());
+                if (alert.showAndWait().orElse(ButtonType.NO) == ButtonType.YES) {
+                    entry.getConfigElement().setAttribute("version", newerDefinition.getVersion());
+                    inspector.appendLog("Upgraded component '" + entry.getComponentId()
+                            + "' from version " + entry.getComponentVersion()
+                            + " to " + newerDefinition.getVersion());
+                    changed = true;
+                }
+            } catch (Exception e) {
+                showError("Failed to evaluate component upgrade", e.getMessage());
+            }
+        }
+
+        if (changed) {
+            try {
+                refreshConfigurationFromDocument();
+                model.setModified(true);
+            } catch (Exception e) {
+                showError("Failed to refresh configuration after upgrade", e.getMessage());
+            }
+        }
+    }
+
     private String getComponentName(String componentId) {
         try {
+            ComponentConfigEntry entry = findConfigEntry(componentId);
+            if (entry != null && model.getRegistry() != null) {
+                return model.getRegistry()
+                        .lookup(entry.getComponentId(), entry.getComponentVersion())
+                        .loadDefinition()
+                        .getName();
+            }
             if (model.getRegistry() != null) {
                 return model.getRegistry().lookup(componentId).loadDefinition().getName();
             }
@@ -664,7 +743,14 @@ public class MainWindow {
             return;
         }
         try {
-            ComponentDefinition def = model.getRegistry().lookup(componentId).loadDefinition();
+            ComponentConfigEntry entry = findConfigEntry(componentId);
+            if (entry == null) {
+                inspector.showConfigurationHelp();
+                return;
+            }
+            ComponentDefinition def = model.getRegistry()
+                    .lookup(entry.getComponentId(), entry.getComponentVersion())
+                    .loadDefinition();
             inspector.showComponentHelp(def);
         } catch (Exception ignored) {
             inspector.showConfigurationHelp();
@@ -683,7 +769,13 @@ public class MainWindow {
             return;
         }
         try {
-            ComponentDefinition def = model.getRegistry().lookup(lastViewedComponentId).loadDefinition();
+            ComponentConfigEntry entry = findConfigEntry(lastViewedComponentId);
+            if (entry == null) {
+                return;
+            }
+            ComponentDefinition def = model.getRegistry()
+                    .lookup(entry.getComponentId(), entry.getComponentVersion())
+                    .loadDefinition();
             if (target.startsWith("section:")) {
                 String sectionName = target.substring("section:".length());
                 SectionDef section = findSection(def.getSections(), sectionName);
@@ -798,7 +890,8 @@ public class MainWindow {
         int total = 0;
         for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
             try {
-                ComponentContainer container = model.getRegistry().lookup(entry.getComponentId());
+                ComponentContainer container = model.getRegistry()
+                        .lookup(entry.getComponentId(), entry.getComponentVersion());
                 ComponentDefinition def = container.loadDefinition();
                 total += countProperties(def.getSections());
             } catch (Exception ignored) {
@@ -928,7 +1021,8 @@ public class MainWindow {
 
         for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
             try {
-                ComponentContainer container = model.getRegistry().lookup(entry.getComponentId());
+                ComponentContainer container = model.getRegistry()
+                        .lookup(entry.getComponentId(), entry.getComponentVersion());
                 ComponentDefinition def = container.loadDefinition();
                 Set<String> paths = new HashSet<>();
                 collectTextProperties(def.getSections(), "", paths);
@@ -1493,9 +1587,15 @@ public class MainWindow {
         Document doc = targetsElement.getOwnerDocument();
         String namespace = targetsElement.getNamespaceURI() != null ? targetsElement.getNamespaceURI() : CONFIG_NS;
         for (String target : targets) {
+            if ("default".equals(target)) {
+                continue;
+            }
             Element targetElement = doc.createElementNS(namespace, "target");
             targetElement.setAttribute("id", target);
             targetsElement.appendChild(targetElement);
+        }
+        if (!targetsElement.hasChildNodes()) {
+            targetsElement.getParentNode().removeChild(targetsElement);
         }
     }
 
@@ -1643,14 +1743,14 @@ public class MainWindow {
         }
 
         try {
-            ComponentContainer container = model.getRegistry().lookup(lastViewedComponentId);
-            ComponentDefinition definition = container.loadDefinition();
-            for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
-                if (entry.getComponentId().equals(lastViewedComponentId)) {
-                    return new ComponentEditorContext(lastViewedComponentId, container, definition, entry);
-                }
+            ComponentConfigEntry entry = findConfigEntry(lastViewedComponentId);
+            if (entry == null) {
+                return null;
             }
-            return null;
+            ComponentContainer container = model.getRegistry()
+                    .lookup(lastViewedComponentId, entry.getComponentVersion());
+            ComponentDefinition definition = container.loadDefinition();
+            return new ComponentEditorContext(lastViewedComponentId, container, definition, entry);
         } catch (Exception e) {
             return null;
         }

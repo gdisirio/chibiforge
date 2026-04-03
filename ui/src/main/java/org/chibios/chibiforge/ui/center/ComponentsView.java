@@ -142,7 +142,7 @@ public class ComponentsView {
 
         for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
             String compId = entry.getComponentId();
-            VBox card = createCard(compId, registry);
+            VBox card = createCard(entry, registry);
             cardPane.getChildren().add(card);
             count++;
         }
@@ -150,11 +150,12 @@ public class ComponentsView {
         countLabel.setText(count + " component(s) configured");
     }
 
-    private VBox createCard(String componentId, ComponentRegistry registry) {
+    private VBox createCard(ComponentConfigEntry entry, ComponentRegistry registry) {
+        String componentId = entry.getComponentId();
         String name = componentId;
-        String version = "";
+        String version = entry.getComponentVersion();
         try {
-            ComponentContainer container = registry.lookup(componentId);
+            ComponentContainer container = registry.lookup(componentId, entry.getComponentVersion());
             ComponentDefinition def = container.loadDefinition();
             name = def.getName();
             version = def.getVersion();

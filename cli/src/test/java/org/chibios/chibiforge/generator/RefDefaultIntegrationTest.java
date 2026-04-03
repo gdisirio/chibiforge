@@ -49,7 +49,7 @@ class RefDefaultIntegrationTest {
                     schemaVersion="1.0">
                   <targets><target id="default"/></targets>
                   <components>
-                    <component id="test.refdefault">
+                    <component id="test.refdefault" version="1.0.0">
                       <settings>
                         <label>custom_label</label>
                       </settings>
@@ -80,7 +80,7 @@ class RefDefaultIntegrationTest {
                     schemaVersion="1.0">
                   <targets><target id="default"/></targets>
                   <components>
-                    <component id="test.refdefault">
+                    <component id="test.refdefault" version="1.0.0">
                       <settings>
                         <max_channels>8</max_channels>
                         <voltage>250</voltage>
@@ -112,7 +112,7 @@ class RefDefaultIntegrationTest {
                     schemaVersion="1.0">
                   <targets><target id="default"/></targets>
                   <components>
-                    <component id="test.refdefault">
+                    <component id="test.refdefault" version="1.0.0">
                       <settings/>
                     </component>
                   </components>

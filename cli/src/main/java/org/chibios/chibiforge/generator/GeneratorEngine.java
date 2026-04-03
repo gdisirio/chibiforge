@@ -153,13 +153,15 @@ public class GeneratorEngine {
 
         for (ComponentConfigEntry entry : config.getComponents()) {
             String compId = entry.getComponentId();
+            String compVersion = entry.getComponentVersion();
             ComponentContainer container;
             try {
-                container = registry.lookup(compId);
+                container = registry.lookup(compId, compVersion);
             } catch (NoSuchElementException e) {
                 throw new ChibiForgeException(
-                        "Component '" + compId + "' referenced in configuration but not found. " +
-                        "Check --components/--plugins paths and verify the component is installed.", e);
+                        "Component '" + compId + "' version '" + compVersion +
+                        "' referenced in configuration but not found. " +
+                        "Check component sources and verify the exact component version is installed.", e);
             }
             ComponentDefinition def;
             try {

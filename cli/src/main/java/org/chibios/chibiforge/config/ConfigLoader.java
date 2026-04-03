@@ -130,7 +130,12 @@ public class ConfigLoader {
                     throw new IllegalArgumentException(
                             "Missing required attribute 'id' on <component> element");
                 }
-                components.add(new ComponentConfigEntry(id, componentEl));
+                String version = componentEl.getAttribute("version");
+                if (version == null || version.isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "Missing required attribute 'version' on <component> element '" + id + "'");
+                }
+                components.add(new ComponentConfigEntry(id, version, componentEl));
             }
         }
         return components;
