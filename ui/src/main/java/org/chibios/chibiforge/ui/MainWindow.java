@@ -1190,7 +1190,21 @@ public class MainWindow {
             for (Path recentFile : recentFiles) {
                 Hyperlink link = new Hyperlink(recentFile.toString());
                 link.setOnAction(e -> openRecentConfiguration(recentFile));
-                recentBox.getChildren().add(link);
+                Button removeButton = new Button("Remove");
+                removeButton.getStyleClass().add("remove-recent-button");
+                removeButton.setOnAction(e -> {
+                    removeRecentFile(recentFile);
+                    if (model.getConfiguration() == null) {
+                        showWelcomeScreen();
+                    }
+                });
+
+                Region spacer = new Region();
+                HBox.setHgrow(spacer, Priority.ALWAYS);
+
+                HBox row = new HBox(8, link, spacer, removeButton);
+                row.setAlignment(Pos.CENTER_LEFT);
+                recentBox.getChildren().add(row);
             }
             content.getChildren().add(recentBox);
         }
@@ -1245,6 +1259,12 @@ public class MainWindow {
         rebuildRecentFilesMenu();
     }
 
+    private void removeRecentFile(Path path) {
+        recentFiles.remove(path.toAbsolutePath().normalize());
+        saveRecentFiles();
+        rebuildRecentFilesMenu();
+    }
+
     private void rebuildRecentFilesMenu() {
         recentFilesMenu.getItems().clear();
         if (recentFiles.isEmpty()) {
@@ -1262,7 +1282,17 @@ public class MainWindow {
             recentFilesMenu.getItems().add(item);
         }
         recentFilesMenu.getItems().add(new SeparatorMenuItem());
-        MenuItem clearItem = new MenuItem("Clear Menu");
+        MenuItem pruneMissingItem = new MenuItem("Remove Missing Files");
+        pruneMissingItem.setOnAction(e -> {
+            recentFiles.removeIf(path -> !Files.exists(path));
+            saveRecentFiles();
+            rebuildRecentFilesMenu();
+            if (model.getConfiguration() == null) {
+                showWelcomeScreen();
+            }
+        });
+        recentFilesMenu.getItems().add(pruneMissingItem);
+        MenuItem clearItem = new MenuItem("Clear All");
         clearItem.setOnAction(e -> {
             recentFiles.clear();
             saveRecentFiles();

@@ -293,6 +293,11 @@
     -fx-font-size: 11px;
 }
 
+.remove-recent-button {
+    -fx-font-size: 11px;
+    -fx-padding: 2 8 2 8;
+}
+
 .component-description {
     -fx-text-fill: #b9c1cb;
     -fx-font-size: 13px;
