@@ -7,4 +7,4 @@ LOG_DIR="$CACHE_ROOT/chibiforge"
 LOG_FILE="$LOG_DIR/ui.log"
 mkdir -p "$CACHE_DIR"
 mkdir -p "$LOG_DIR"
-nohup java -Djavafx.cachedir="$CACHE_DIR" -cp "$DIR/chibiforge-ui.jar:$DIR/chibiforge.jar" org.chibios.chibiforge.ui.ChibiForgeLauncher "$@" >>"$LOG_FILE" 2>&1 </dev/null &
+setsid -f java -Djavafx.cachedir="$CACHE_DIR" -cp "$DIR/chibiforge-ui.jar:$DIR/chibiforge.jar" org.chibios.chibiforge.ui.ChibiForgeLauncher "$@" >>"$LOG_FILE" 2>&1 </dev/null
