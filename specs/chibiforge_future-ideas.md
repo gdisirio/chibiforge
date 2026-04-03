@@ -9,6 +9,9 @@
 | 4 | Computed Properties (`<compute>`)     | v2             | Requires XPath-based evaluation on load and update               |
 | 5 | Enhanced `<image>` display            | v1.x           | Pure UI feature, no generator or DOM impact                      |
 | 6 | `<line/>` layout separator            | v1.x           | UI-only layout primitive                                         |
+| 7 | Embedded mini-scripts                 | v2             | Schema-level dynamic validation and computed choices/defaults    |
+| 8 | Java extension mechanism              | v2             | Plugin-JAR-backed advanced extension point                       |
+| 9 | Dynamic field population              | v2             | Runtime choice/default sourcing beyond static catalogs           |
 
 ---
 
@@ -206,5 +209,102 @@ A `<line/>` element MAY be used inside `<layout>` to insert a visual separator.
 
 ---
 
-# **End of Document**
+## **8. Embedded Mini-Scripts for Properties**
 
+### **Target: v2**
+
+Properties MAY include small inline scripts for validation and dynamic behavior,
+embedded directly in `schema.xml`. This keeps simple logic self-contained within
+the component definition and avoids requiring compiled Java classes for every
+dynamic rule.
+
+### **8.1 Possible Syntax**
+
+```xml
+<property name="vdd" type="int" brief="Supply voltage" ...>
+  <script event="validate">
+    if (doc.initialization_settings.use_dma == "true" &amp;&amp; value &lt; 250)
+      return "VDD must be >= 250mV when DMA is enabled";
+  </script>
+</property>
+
+<property name="clock_source" type="enum" brief="Clock source" ...>
+  <script event="choices">
+    return ["PLL", "HSI", "HSE"];
+  </script>
+</property>
+```
+
+### **8.2 Possible Script Events**
+
+* `validate`: called on focus loss. Receives the current `value` and `doc`.
+  Returns `null` for success or an error/warning message string.
+* `choices`: dynamically computes the list of allowed values for `enum`
+  properties, replacing or supplementing `enum_of`.
+* `default`: dynamically computes a default value based on other property
+  values.
+
+### **8.3 Implementation Considerations**
+
+* Scripts would be evaluated by an embedded JavaScript engine such as GraalJS.
+* Scripts have read-only access to the live data model (`doc`, resource
+  variables) and the current `value`.
+* Scripts should remain minimal and fast enough to avoid affecting GUI
+  responsiveness.
+
+---
+
+## **9. Java Extension Mechanism (Plugin JARs)**
+
+### **Target: v2**
+
+For more complex scenarios beyond what mini-scripts can handle, plugin JARs
+could include compiled Java classes that participate in the configuration
+lifecycle.
+
+Possible uses:
+
+* custom validators for cross-field or hardware-specific checks
+* dynamic field population from external data sources
+* custom transformations before values reach the data model or generated output
+
+### **9.1 Mechanism**
+
+* Property or section elements reference a Java class name, for example
+  `validator="org.chibios.hal.validators.VddValidator"`.
+* The class lives in the plugin JAR and implements a ChibiForge-defined
+  interface.
+* At runtime, ChibiForge loads the class via a classloader and calls it with the
+  relevant DOM/data model.
+
+### **9.2 Considerations**
+
+* Requires classloader management and a stable API contract.
+* Security sandboxing may be needed for untrusted plugins.
+* Applies only to plugin JAR containers, not plain filesystem containers.
+* Mini-scripts should remain the preferred mechanism for simple logic.
+
+---
+
+## **10. Dynamic Field Population**
+
+### **Target: v2**
+
+Enum choices and list item defaults could be populated dynamically at runtime,
+going beyond static `enum_of` CSV values and `@ref:` resource lookups.
+
+Possible mechanisms:
+
+* the `choices` mini-script event
+* Java extension classes for external data sources
+
+Possible use cases:
+
+* available serial ports
+* connected hardware
+* device family databases
+* firmware version catalogs
+
+---
+
+# **End of Document**

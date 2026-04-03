@@ -248,7 +248,7 @@ Example:
 
 ```xml
 <component
-    xmlns="http://chibiforge/schema/component"
+    xmlns="http://www.example.org/chibiforge_schema/"
     id="org.chibios.chibiforge.components.hal.stm32f4xx"
     name="HAL STM32F4xx"
     version="1.0.0"
@@ -302,7 +302,7 @@ Child elements:
 
 `<sections>` MUST contain at least one `<section>`.
 
-The XSD schema (`chibiforge_schema.xsd`) defines the exact structure and is authoritative for `component/schema.xml`.
+The XSD schema (`chibiforge_schema.xsd`) defines the exact structure and is authoritative for `component/schema.xml`, including the XML namespace used by the document.
 
 ### 5.2 Feature Dependencies
 
@@ -435,6 +435,8 @@ Type-specific optional attributes:
 - **`enum`**: `enum_of` — CSV of allowed values (e.g., `"PLL,HSI,HSE"`).
 - **`list`**: `list_columns` — CSV of property names to show in the table view, optionally followed by `:` and column width in pixels (e.g., `"name:150,mode:100,speed"`). For `type="list"`, the nested `<sections>` element defines the schema of each list item.
 
+The XSD permits a nested `<sections>` element on any `<property>`. In v12, tool-defined semantics exist only for `type="list"`; for other property types, nested `<sections>` content is outside the defined behavior of this specification.
+
 Property types and their GUI widgets:
 
 - `bool`: checkbox or toggle switch.
@@ -544,7 +546,7 @@ Child elements (any mix):
 
 - `<property>`: a property rendered in the grid cell.
 - `<image>`: an image rendered in the grid cell.
-- `<empty>`: an empty visual slot (for alignment purposes).
+- `<empty>`: a visual placeholder slot (for alignment purposes). The XSD models this as a string-valued element; tools SHOULD treat any text content as insignificant and render it as an empty slot.
 
 Constraints:
 
@@ -1672,90 +1674,3 @@ This functionality is already implemented in the current toolchain:
 **Build output**: the fat JAR (`chibiforge.jar`) and wrapper script are placed in a top-level `bin/` directory, parallel to `cli/`. This directory will also hold future UI binaries.
 
 **Engine reuse**: the UI module depends on the CLI module as a library for the generator engine, component loading, data model building, etc. There is no separate `engine/` package in the UI — the CLI module provides these services.
-
----
-
-
-# Addendum C – Items Pending Detailed Specification
-
-The following items are referenced in this spec but require further design work before implementation:
-
-1. **XSD for `chibiforge.xcfg`**: formal XML Schema definition for the configuration file. The component schema XSD (`chibiforge_schema.xsd`) is provided; the configuration file schema is pending. This will also finalize the exact serialization format for multi-target values.
-
----
-
-# Addendum D – Future Features (v2.0 and Beyond)
-
-This addendum collects ideas for future ChibiForge versions that go beyond the v1 scope.
-
----
-
-## D.1 Embedded Mini-Scripts for Properties
-
-Properties could include small inline scripts for validation and dynamic behavior, embedded directly in `schema.xml`. This avoids the need for compiled Java classes and keeps logic self-contained within the component definition.
-
-**Possible syntax:**
-
-```xml
-<property name="vdd" type="int" brief="Supply voltage" ...>
-  <script event="validate">
-    if (doc.initialization_settings.use_dma == "true" &amp;&amp; value &lt; 250)
-      return "VDD must be >= 250mV when DMA is enabled";
-  </script>
-</property>
-
-<property name="clock_source" type="enum" brief="Clock source" ...>
-  <script event="choices">
-    // Dynamically compute available options based on other fields
-    return ["PLL", "HSI", "HSE"];
-  </script>
-</property>
-```
-
-**Possible script events:**
-
-- **`validate`**: called on focus loss. Receives the current `value` and `doc`. Returns `null` for success or an error/warning message string. Should execute quickly to avoid impacting GUI responsiveness.
-- **`choices`**: dynamically computes the list of allowed values for `enum` properties, replacing or supplementing `enum_of`.
-- **`default`**: dynamically computes a default value based on other property values.
-
-**Implementation considerations:**
-
-- Scripts would be evaluated by an embedded JavaScript engine (e.g., GraalJS) running in the same JVM.
-- Scripts have read-only access to the data model (`doc`, resource variables) and the current `value`.
-- Scripts should be minimal — a few lines at most — for simple conditional logic that cannot be expressed with static constraints or XPath expressions.
-- Validation scripts execute on focus loss, so they do not impact GUI responsiveness during typing.
-
----
-
-## D.2 Java Extension Mechanism (Plugin JARs)
-
-For more complex scenarios beyond what mini-scripts can handle, plugin JARs could include compiled Java classes that participate in the configuration lifecycle:
-
-- **Custom validators**: cross-field, cross-section, hardware-specific validation rules.
-- **Dynamic field population**: choices computed at runtime from external data sources (e.g., scanning hardware, querying device databases).
-- **Custom transformations**: pre-process or post-process values before they reach the data model or generated output.
-
-**Mechanism:**
-
-- Property or section elements reference a Java class name (e.g., `validator="org.chibios.hal.validators.VddValidator"`).
-- The class lives in the plugin JAR and implements a ChibiForge-defined interface.
-- At runtime, ChibiForge loads the class via a classloader, instantiates it, and calls it with the relevant DOM/data model.
-
-**Considerations:**
-
-- Requires classloader management and a well-defined API contract.
-- Security sandboxing may be needed for untrusted plugins.
-- Only available for plugin JAR containers (not filesystem containers).
-- Mini-scripts (§D.1) are preferred for simple logic; Java extensions are for heavy-lifting scenarios.
-
----
-
-## D.3 Dynamic Field Population
-
-Enum choices and list item defaults could be populated dynamically at runtime, going beyond static `enum_of` CSV values and `@ref:` resource lookups:
-
-- The `choices` mini-script event (§D.1).
-- Java extension classes (§D.2) for external data sources.
-- Use cases: available serial ports, connected hardware, device family databases, firmware version catalogs.
-
----
