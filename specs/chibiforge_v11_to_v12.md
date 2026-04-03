@@ -491,6 +491,150 @@ Presets remain **deterministic, schema-aligned configuration patches** applied o
 
 ---
 
-# **End of Addendum**
+## **12. Template Data Model Simplification and Removal of `configuration`**
+
+### **12.1 Overview**
+
+This addendum defines a simplification of the FMPP data model exposed to templates.
+
+The `configuration` variable is removed from the template context.
+
+Templates SHALL operate exclusively on:
+
+* resolved configuration data (`doc`)
+* cross-component configuration (`components`)
+* component-local resources
 
 ---
+
+### **12.2 Rationale**
+
+The previous model exposed a `configuration` variable containing execution context such as:
+
+* project root paths
+* generated output paths
+* target information
+
+This introduced:
+
+* unnecessary coupling between templates and the execution environment
+* potential non-deterministic behavior
+* misuse of templates for filesystem concerns
+
+The updated model enforces:
+
+> Templates operate only on configuration data, not on generation context.
+
+---
+
+### **12.3 Template Data Model**
+
+The following variables are available to FMPP templates:
+
+| Variable        | Scope             | Description                                            |
+| --------------- | ----------------- | ------------------------------------------------------ |
+| `doc`           | Current component | Fully resolved configuration for the current component |
+| `components`    | Global            | Fully resolved configurations of all components        |
+| `<resource id>` | Current component | Parsed resource declared in the component              |
+
+---
+
+### **12.4 Removal of `configuration`**
+
+#### **12.4.1 Rule**
+
+The `configuration` variable SHALL NOT be exposed to templates.
+
+---
+
+#### **12.4.2 Consequences**
+
+Templates SHALL NOT:
+
+* reference project root paths
+* reference generated output paths
+* reference target information
+* perform logic based on execution environment
+
+---
+
+### **12.5 Target Handling**
+
+Target selection and resolution are defined as:
+
+* a UI concern
+* resolved before generation
+* not visible to templates
+
+The DOM provided to the generator SHALL already contain values for the active target.
+
+---
+
+### **12.6 Filesystem Responsibility**
+
+All filesystem-related concerns are handled by the generator:
+
+* output paths
+* file placement
+* directory structure
+
+Templates SHALL produce content only and SHALL NOT depend on filesystem layout.
+
+---
+
+### **12.7 Migration Notes**
+
+#### **12.7.1 Deprecated Usage**
+
+Any existing template usage of:
+
+```ftl
+${configuration.*}
+```
+
+is invalid in v12.
+
+---
+
+#### **12.7.2 Migration Strategy**
+
+* Remove all references to `configuration`
+* Move path-related logic into the generator
+* Ensure templates rely only on configuration data and resources
+
+---
+
+### **12.8 Determinism Guarantee**
+
+With this change:
+
+* template output depends only on configuration data
+* generation is independent of execution environment
+* builds are reproducible given identical inputs
+
+---
+
+### **12.9 Scope**
+
+This change affects:
+
+* template execution model (FMPP)
+* generator/template boundary
+
+It does **not** affect:
+
+* schema structure
+* configuration format (`chibiforge.xcfg`)
+* component packaging
+
+---
+
+### **12.10 Status**
+
+* Applies to v12
+* Mandatory for all compliant tools and templates
+
+---
+
+# **End of Addendum**
+
