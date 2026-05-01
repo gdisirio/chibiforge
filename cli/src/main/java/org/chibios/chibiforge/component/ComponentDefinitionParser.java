@@ -54,6 +54,7 @@ public class ComponentDefinitionParser {
         List<ResourceDef> resources = new ArrayList<>();
         List<String> categories = new ArrayList<>();
         List<FeatureDef> requires = new ArrayList<>();
+        List<DependencyDef> depends = new ArrayList<>();
         List<FeatureDef> provides = new ArrayList<>();
         List<SectionDef> sections = new ArrayList<>();
 
@@ -63,6 +64,7 @@ public class ComponentDefinitionParser {
                 case "resources" -> resources = parseResources(child);
                 case "categories" -> categories = parseCategories(child);
                 case "requires" -> requires = parseFeatures(child);
+                case "depends" -> depends = parseDependencies(child);
                 case "provides" -> provides = parseFeatures(child);
                 case "sections" -> sections = parseSections(child);
                 default -> throw new IllegalArgumentException(
@@ -71,7 +73,7 @@ public class ComponentDefinitionParser {
         }
 
         return new ComponentDefinition(id, name, version, hidden, isPlatform, description,
-                resources, categories, requires, provides, sections);
+                resources, categories, requires, depends, provides, sections);
     }
 
     private List<ResourceDef> parseResources(Element resourcesEl) {
@@ -104,6 +106,20 @@ public class ComponentDefinitionParser {
                 String id = requireAttr(el, "id");
                 boolean exclusive = "true".equals(el.getAttribute("exclusive"));
                 result.add(new FeatureDef(id, exclusive));
+            }
+        }
+        return result;
+    }
+
+    private List<DependencyDef> parseDependencies(Element parentEl) {
+        List<DependencyDef> result = new ArrayList<>();
+        for (Element el : childElements(parentEl)) {
+            if ("component".equals(el.getLocalName())) {
+                result.add(new DependencyDef(
+                        requireAttr(el, "id"),
+                        optAttr(el, "version"),
+                        optAttr(el, "minVersion")
+                ));
             }
         }
         return result;

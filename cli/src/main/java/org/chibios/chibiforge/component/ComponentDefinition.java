@@ -34,12 +34,13 @@ public class ComponentDefinition {
     private final List<ResourceDef> resources;
     private final List<String> categories;
     private final List<FeatureDef> requires;
+    private final List<DependencyDef> depends;
     private final List<FeatureDef> provides;
     private final List<SectionDef> sections;
 
     public ComponentDefinition(String id, String name, String version, boolean hidden, boolean isPlatform,
                                String description, List<ResourceDef> resources, List<String> categories,
-                               List<FeatureDef> requires, List<FeatureDef> provides,
+                               List<FeatureDef> requires, List<DependencyDef> depends, List<FeatureDef> provides,
                                List<SectionDef> sections) {
         this.id = id;
         this.name = name;
@@ -50,6 +51,7 @@ public class ComponentDefinition {
         this.resources = resources != null ? List.copyOf(resources) : List.of();
         this.categories = categories != null ? List.copyOf(categories) : List.of();
         this.requires = requires != null ? List.copyOf(requires) : List.of();
+        this.depends = depends != null ? List.copyOf(depends) : List.of();
         this.provides = provides != null ? List.copyOf(provides) : List.of();
         this.sections = sections != null ? List.copyOf(sections) : List.of();
     }
@@ -63,6 +65,7 @@ public class ComponentDefinition {
     public List<ResourceDef> getResources() { return resources; }
     public List<String> getCategories() { return categories; }
     public List<FeatureDef> getRequires() { return requires; }
+    public List<DependencyDef> getDepends() { return depends; }
     public List<FeatureDef> getProvides() { return provides; }
     public List<SectionDef> getSections() { return sections; }
 

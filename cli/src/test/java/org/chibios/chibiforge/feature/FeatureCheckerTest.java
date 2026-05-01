@@ -85,6 +85,6 @@ class FeatureCheckerTest {
 
     private static ComponentDefinition makeDef(String id, List<FeatureDef> requires, List<FeatureDef> provides) {
         return new ComponentDefinition(id, id, "1.0.0", false, false, "test",
-                List.of(), List.of("Test"), requires, provides, List.of());
+                List.of(), List.of("Test"), requires, List.of(), provides, List.of());
     }
 }

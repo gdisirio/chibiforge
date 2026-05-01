@@ -74,6 +74,7 @@ class ComponentSchemaPathIndexTest {
                 List.of(),
                 List.of(),
                 List.of(),
+                List.of(),
                 List.of(
                         section("Clock Settings", property("Channels")),
                         section("DMA Settings", property("Channels"))));
@@ -108,6 +109,7 @@ class ComponentSchemaPathIndexTest {
                 false,
                 false,
                 null,
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of(),

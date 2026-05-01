@@ -78,6 +78,11 @@ class ComponentDefinitionParserTest {
     }
 
     @Test
+    void dependsDefaultsToEmpty() {
+        assertThat(def.getDepends()).isEmpty();
+    }
+
+    @Test
     void provides() {
         assertThat(def.getProvides()).hasSize(1);
         assertThat(def.getProvides().get(0).getId()).isEqualTo("features.hal.platform.stm32f4xx");
@@ -265,6 +270,52 @@ class ComponentDefinitionParserTest {
         assertThatThrownBy(() -> parser.parse(asInputStream(xml)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Missing required attribute 'visible' on element <property>");
+    }
+
+    @Test
+    void parsesHardDependenciesWithVersionMetadata() throws Exception {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <component xmlns="http://chibiforge/schema/component"
+                           id="test.component"
+                           name="Test Component"
+                           version="1.0.0"
+                           hidden="false"
+                           is_platform="false">
+                  <description>Test.</description>
+                  <resources/>
+                  <categories><category id="Test"/></categories>
+                  <requires/>
+                  <depends>
+                    <component id="dep.any"/>
+                    <component id="dep.exact" version="1.2.3"/>
+                    <component id="dep.minimum" minVersion="2.0.0"/>
+                    <component id="dep.both" version="3.0.0" minVersion="2.0.0"/>
+                  </depends>
+                  <provides/>
+                  <sections/>
+                </component>
+                """;
+
+        ComponentDefinitionParser parser = new ComponentDefinitionParser();
+        ComponentDefinition parsed = parser.parse(asInputStream(xml));
+
+        assertThat(parsed.getDepends()).hasSize(4);
+        assertThat(parsed.getDepends().get(0).getId()).isEqualTo("dep.any");
+        assertThat(parsed.getDepends().get(0).getVersion()).isNull();
+        assertThat(parsed.getDepends().get(0).getMinVersion()).isNull();
+
+        assertThat(parsed.getDepends().get(1).getId()).isEqualTo("dep.exact");
+        assertThat(parsed.getDepends().get(1).getVersion()).isEqualTo("1.2.3");
+        assertThat(parsed.getDepends().get(1).getMinVersion()).isNull();
+
+        assertThat(parsed.getDepends().get(2).getId()).isEqualTo("dep.minimum");
+        assertThat(parsed.getDepends().get(2).getVersion()).isNull();
+        assertThat(parsed.getDepends().get(2).getMinVersion()).isEqualTo("2.0.0");
+
+        assertThat(parsed.getDepends().get(3).getId()).isEqualTo("dep.both");
+        assertThat(parsed.getDepends().get(3).getVersion()).isEqualTo("3.0.0");
+        assertThat(parsed.getDepends().get(3).getMinVersion()).isEqualTo("2.0.0");
     }
 
     private static InputStream asInputStream(String xml) {

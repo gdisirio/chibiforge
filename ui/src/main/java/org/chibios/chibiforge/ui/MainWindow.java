@@ -28,6 +28,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.scene.input.KeyCode;
 import org.chibios.chibiforge.component.ComponentDefinition;
+import org.chibios.chibiforge.component.DependencyDef;
 import org.chibios.chibiforge.component.LayoutDef;
 import org.chibios.chibiforge.component.PropertyDef;
 import org.chibios.chibiforge.component.SectionDef;
@@ -67,8 +68,10 @@ import org.w3c.dom.NodeList;
 import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -552,6 +555,7 @@ public class MainWindow {
 
     private void addSelectedComponent(String compId) {
         if (compId == null) return;
+        if (model.getRegistry() == null) return;
 
         // Check if already configured
         if (model.getConfiguredComponentIds().contains(compId)) {
@@ -567,17 +571,60 @@ public class MainWindow {
         if (config == null) return;
 
         try {
+            List<String> resolutionWarnings = new ArrayList<>();
+            LinkedHashMap<String, ComponentDefinition> additions = resolveComponentsToAdd(compId, resolutionWarnings);
+            if (additions.isEmpty()) {
+                return;
+            }
+
+            List<ComponentDefinition> dependencyAdditions = additions.values().stream()
+                    .filter(def -> !def.getId().equals(compId))
+                    .toList();
+            if (!dependencyAdditions.isEmpty()) {
+                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+                confirm.setTitle("Import Required Components");
+                confirm.setHeaderText("Adding " + additions.get(compId).getName()
+                        + " also requires additional component(s).");
+
+                StringBuilder content = new StringBuilder("The following hard dependencies will also be imported:\n\n");
+                for (ComponentDefinition dependency : dependencyAdditions) {
+                    content.append("- ")
+                            .append(dependency.getName())
+                            .append(" (")
+                            .append(dependency.getId())
+                            .append(", ")
+                            .append(dependency.getVersion())
+                            .append(")\n");
+                }
+                if (!resolutionWarnings.isEmpty()) {
+                    content.append("\nWarnings:\n");
+                    for (String warning : resolutionWarnings) {
+                        content.append("- ").append(warning).append('\n');
+                    }
+                }
+                confirm.setContentText(content.toString());
+                confirm.getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
+                if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+                    return;
+                }
+            }
+
             Element componentsElement = findOrCreateComponentsElement();
             Document doc = componentsElement.getOwnerDocument();
-            Element newComp = doc.createElementNS(componentsElement.getNamespaceURI(), "component");
-            newComp.setAttribute("id", compId);
-            newComp.setAttribute("version", model.getRegistry().lookup(compId).loadDefinition().getVersion());
-            componentsElement.appendChild(newComp);
+            for (ComponentDefinition definition : additions.values()) {
+                Element newComp = doc.createElementNS(componentsElement.getNamespaceURI(), "component");
+                newComp.setAttribute("id", definition.getId());
+                newComp.setAttribute("version", definition.getVersion());
+                componentsElement.appendChild(newComp);
+            }
 
             refreshConfigurationFromDocument();
             model.setModified(true);
             componentsView.refresh();
             palette.refresh();
+            for (String warning : resolutionWarnings) {
+                inspector.appendLog("WARNING: " + warning);
+            }
             updateStatusBar();
         } catch (Exception e) {
             Alert alert = new Alert(Alert.AlertType.ERROR,
@@ -591,6 +638,18 @@ public class MainWindow {
         if (config == null) return;
 
         try {
+            List<String> dependents = findConfiguredDependents(componentId);
+            if (!dependents.isEmpty()) {
+                Alert alert = new Alert(Alert.AlertType.ERROR,
+                        "Cannot remove component '" + componentId + "'.\n\nRequired by:\n- "
+                                + String.join("\n- ", dependents),
+                        ButtonType.OK);
+                alert.setTitle("Component Required");
+                alert.setHeaderText(null);
+                alert.showAndWait();
+                return;
+            }
+
             for (ComponentConfigEntry entry : config.getComponents()) {
                 if (entry.getComponentId().equals(componentId)) {
                     entry.getConfigElement().getParentNode().removeChild(entry.getConfigElement());
@@ -608,6 +667,136 @@ public class MainWindow {
                     "Failed to remove component: " + e.getMessage(), ButtonType.OK);
             alert.showAndWait();
         }
+    }
+
+    private LinkedHashMap<String, ComponentDefinition> resolveComponentsToAdd(String componentId,
+                                                                              List<String> warnings) throws Exception {
+        LinkedHashMap<String, ComponentDefinition> additions = new LinkedHashMap<>();
+        ComponentDefinition definition = model.getRegistry().lookup(componentId).loadDefinition();
+        collectComponentDefinitionToAdd(definition, additions, new HashSet<>(), warnings);
+        return additions;
+    }
+
+    private void collectComponentDefinitionToAdd(ComponentDefinition definition,
+                                                 LinkedHashMap<String, ComponentDefinition> additions,
+                                                 Set<String> visiting,
+                                                 List<String> warnings) throws Exception {
+        String componentId = definition.getId();
+        if (model.getConfiguredComponentIds().contains(componentId) || additions.containsKey(componentId)) {
+            return;
+        }
+        if (!visiting.add(componentId)) {
+            throw new IllegalArgumentException("Cyclic hard dependency detected involving '" + componentId + "'");
+        }
+
+        for (DependencyDef dependency : definition.getDepends()) {
+            resolveDependency(dependency, definition, additions, visiting, warnings);
+        }
+
+        additions.put(componentId, definition);
+        visiting.remove(componentId);
+    }
+
+    private void resolveDependency(DependencyDef dependency,
+                                   ComponentDefinition owner,
+                                   LinkedHashMap<String, ComponentDefinition> additions,
+                                   Set<String> visiting,
+                                   List<String> warnings) throws Exception {
+        if (dependency.hasExactVersion() && dependency.hasMinVersion()) {
+            warnings.add("Component '" + owner.getId() + "' dependency '" + dependency.getId()
+                    + "' declares both version and minVersion; using exact version '" + dependency.getVersion() + "'.");
+        }
+
+        ComponentConfigEntry configuredEntry = findConfigEntry(dependency.getId());
+        if (configuredEntry != null) {
+            validateDependencyVersion(configuredEntry.getComponentVersion(), dependency, owner.getId());
+            return;
+        }
+
+        ComponentDefinition scheduled = additions.get(dependency.getId());
+        if (scheduled != null) {
+            validateDependencyVersion(scheduled.getVersion(), dependency, owner.getId());
+            return;
+        }
+
+        ComponentContainer dependencyContainer = resolveDependencyContainer(dependency);
+        ComponentDefinition dependencyDefinition = dependencyContainer.loadDefinition();
+        validateDependencyVersion(dependencyDefinition.getVersion(), dependency, owner.getId());
+
+        collectComponentDefinitionToAdd(dependencyDefinition, additions, visiting, warnings);
+    }
+
+    private ComponentContainer resolveDependencyContainer(DependencyDef dependency) {
+        if (dependency.hasExactVersion()) {
+            return model.getRegistry().lookup(dependency.getId(), dependency.getVersion());
+        }
+        return model.getRegistry().lookup(dependency.getId());
+    }
+
+    private void validateDependencyVersion(String resolvedVersion,
+                                           DependencyDef dependency,
+                                           String ownerComponentId) {
+        if (dependency.hasExactVersion()) {
+            if (!dependency.getVersion().equals(resolvedVersion)) {
+                throw new IllegalArgumentException("Component '" + ownerComponentId + "' requires component '"
+                        + dependency.getId() + "' version '" + dependency.getVersion()
+                        + "', but version '" + resolvedVersion + "' is selected.");
+            }
+            return;
+        }
+        if (dependency.hasMinVersion() && compareVersions(resolvedVersion, dependency.getMinVersion()) < 0) {
+            throw new IllegalArgumentException("Component '" + ownerComponentId + "' requires component '"
+                    + dependency.getId() + "' version >= '" + dependency.getMinVersion()
+                    + "', but version '" + resolvedVersion + "' is selected.");
+        }
+    }
+
+    private int compareVersions(String left, String right) {
+        int[] l = parseVersion(left);
+        int[] r = parseVersion(right);
+        for (int i = 0; i < 3; i++) {
+            int cmp = Integer.compare(l[i], r[i]);
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+        return 0;
+    }
+
+    private int[] parseVersion(String version) {
+        String[] parts = version.split("\\.");
+        if (parts.length != 3) {
+            throw new IllegalArgumentException("Invalid semantic version: " + version);
+        }
+        return new int[] {
+                Integer.parseInt(parts[0]),
+                Integer.parseInt(parts[1]),
+                Integer.parseInt(parts[2])
+        };
+    }
+
+    private List<String> findConfiguredDependents(String componentId) {
+        if (model.getConfiguration() == null || model.getRegistry() == null) {
+            return List.of();
+        }
+
+        List<String> dependents = new ArrayList<>();
+        for (ComponentConfigEntry entry : model.getConfiguration().getComponents()) {
+            if (entry.getComponentId().equals(componentId)) {
+                continue;
+            }
+            try {
+                ComponentDefinition definition = lookupConfiguredContainer(entry).loadDefinition();
+                boolean dependsOnTarget = definition.getDepends().stream()
+                        .anyMatch(dependency -> dependency.getId().equals(componentId));
+                if (dependsOnTarget) {
+                    dependents.add(definition.getName() + " (" + definition.getId() + ")");
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        dependents.sort(Comparator.naturalOrder());
+        return dependents;
     }
 
     private ComponentConfigEntry findConfigEntry(String componentId) {
