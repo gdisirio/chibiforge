@@ -16,6 +16,9 @@
         <element name="requires" type="tns:requiresType" maxOccurs="1"
           minOccurs="1">
         </element>
+        <element name="depends" type="tns:dependsType" maxOccurs="1"
+          minOccurs="0">
+        </element>
             <element name="provides" type="tns:providesType" maxOccurs="1" minOccurs="1">
         </element>
             <element name="sections" type="tns:sectionsType" maxOccurs="1" minOccurs="1">
@@ -153,6 +156,18 @@
     <complexType name="featureType">
       <attribute name="id" type="tns:nonEmptyStringType" use="required"></attribute>
       <attribute name="exclusive" type="tns:booleanStringType"></attribute>
+    </complexType>
+
+    <complexType name="dependsType">
+      <sequence>
+        <element name="component" type="tns:dependencyComponentType" maxOccurs="unbounded" minOccurs="0"></element>
+      </sequence>
+    </complexType>
+
+    <complexType name="dependencyComponentType">
+      <attribute name="id" type="tns:nonEmptyStringType" use="required"></attribute>
+      <attribute name="version" type="xs:string"></attribute>
+      <attribute name="minVersion" type="xs:string"></attribute>
     </complexType>
 
     <complexType name="providesType">

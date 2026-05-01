@@ -20,6 +20,7 @@ This document establishes:
 * the structure of `component/schema.xml`
 * the semantic meaning of schema elements and attributes
 * feature dependency declarations
+* hard component dependency declarations
 * resource declarations
 * configuration structure declarations
 * UI-level semantics for `@xxx` constructs
@@ -68,6 +69,7 @@ The root element is:
   <resources>...</resources>
   <categories>...</categories>
   <requires>...</requires>
+  <depends>...</depends>
   <provides>...</provides>
   <sections>...</sections>
 </component>
@@ -156,7 +158,7 @@ Resources are used:
 
 ---
 
-## 7. Feature Declarations
+## 7. Soft Feature Declarations
 
 ```xml id="u2v1tm"
 <requires>
@@ -171,7 +173,7 @@ Resources are used:
 Semantics:
 
 * advisory dependency model
-* no automatic resolution
+* no automatic feature resolution
 
 Tools SHALL:
 
@@ -180,7 +182,43 @@ Tools SHALL:
 
 ---
 
-## 8. Sections
+## 8. Hard Component Dependencies
+
+```xml
+<depends>
+  <component id="org.example.cmsis.core"/>
+  <component id="org.example.startup" version="1.2.0"/>
+  <component id="org.example.hal.core" minVersion="2.0.0"/>
+</depends>
+```
+
+Semantics:
+
+* each dependency targets a component ID
+* the dependency is satisfied only if that component is present in the configuration
+* unlike `<requires>`, this is a hard dependency model
+
+Version semantics:
+
+* if neither `version` nor `minVersion` is present, any resolved version of that component ID is acceptable
+* if `version` is present, an exact version match is required
+* if `minVersion` is present, any version greater than or equal to that value is acceptable
+* if both are present, `version` SHALL take precedence, `minVersion` SHALL be ignored, and tools SHALL emit a warning
+
+Resolution semantics:
+
+* dependency selection follows the normal component source precedence rules
+* the presence or absence of alternate shadowed containers does not affect dependency correctness
+
+Tool semantics:
+
+* non-interactive tools SHALL treat unresolved hard dependencies as errors
+* interactive tools MAY assist the user by auto-adding missing hard dependencies
+* interactive tools MAY warn when multiple candidate containers for the same component ID exist in the source path, but this is not part of dependency validity
+
+---
+
+## 9. Sections
 
 ### 8.1 Structure
 
@@ -213,7 +251,7 @@ They define:
 
 ---
 
-## 9. Properties
+## 10. Properties
 
 ### 9.1 Structure
 

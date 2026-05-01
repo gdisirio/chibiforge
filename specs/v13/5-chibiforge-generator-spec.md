@@ -353,8 +353,9 @@ The generator SHALL execute:
 1. load configuration
 2. resolve active target
 3. resolve component definitions
-4. validate feature dependencies
-5. build resolved component data
+4. validate hard component dependencies
+5. validate feature dependencies
+6. build resolved component data
 6. for each component:
 
    * load resources
@@ -364,7 +365,26 @@ The generator SHALL execute:
 
 ---
 
-## 11. Feature Dependencies
+## 11. Dependency Validation
+
+### 11.1 Hard Component Dependencies
+
+The generator SHALL:
+
+* validate that every hard component dependency is present in the configuration
+* validate any exact-version or minimum-version constraint attached to the dependency
+
+Violations SHALL produce errors.
+
+If both `version` and `minVersion` are declared on the same dependency:
+
+* `version` SHALL take precedence
+* `minVersion` SHALL be ignored
+* a warning SHALL be emitted
+
+---
+
+### 11.2 Soft Feature Dependencies
 
 The generator SHALL:
 

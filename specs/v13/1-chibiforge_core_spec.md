@@ -76,12 +76,12 @@ All system behavior SHALL be explicit.
 
 The system MUST NOT:
 
-* automatically add or remove components
+* automatically remove components
 * implicitly resolve dependencies
 * introduce hidden inheritance
 * apply undeclared defaults
 
-Warnings MAY be emitted, but execution SHALL remain under user control.
+Warnings MAY be emitted, and interactive tools MAY assist the user by adding explicitly declared hard dependencies, but execution SHALL remain under user control.
 
 ---
 
@@ -381,6 +381,6 @@ ChibiForge does NOT define:
 * build systems
 * IDE behavior
 * runtime behavior of generated code
-* automatic dependency resolution
+* automatic feature dependency resolution
 
 ---

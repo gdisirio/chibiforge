@@ -30,6 +30,7 @@ ChibiForge tools are responsible for:
 
 * locating component containers
 * loading component definitions
+* resolving hard component dependencies
 * invoking the generator
 * applying presets
 * managing configuration files
@@ -216,6 +217,25 @@ For each selected component:
 * templates SHALL be made available
 
 Failure to load a component SHALL be treated as an error.
+
+---
+
+## 12. Hard Component Dependency Behavior
+
+Tools SHALL distinguish hard component dependencies from soft feature dependencies.
+
+For hard component dependencies:
+
+* the dependency key is a component ID
+* source-path precedence determines which available container is selected for that component ID
+* non-interactive tools SHALL treat unresolved hard dependencies as errors
+* interactive tools MAY assist the user by auto-adding missing hard dependencies to the configuration
+
+If a dependency declares both `version` and `minVersion`:
+
+* `version` SHALL take precedence
+* `minVersion` SHALL be ignored
+* a warning SHALL be emitted
 
 ---
 
