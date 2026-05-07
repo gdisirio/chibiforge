@@ -25,8 +25,10 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GeneratorEngineIntegrationTest {
 
@@ -265,5 +267,120 @@ class GeneratorEngineIntegrationTest {
         String content = Files.readString(configRoot.resolve("generated/config.h"));
         assertThat(content).contains("#define COUNT 1");      // release override
         assertThat(content).contains("#define ENABLED true");  // no release override, falls back to default
+    }
+
+    @Test
+    void hardDependenciesAreProcessedBeforeDependents(@TempDir Path tempDir) throws Exception {
+        Path testComponentsRoot = tempDir.resolve("components");
+        createTestComponent(testComponentsRoot, "test.dep.core", "Dependency Core", "1.0.0", null);
+        createTestComponent(testComponentsRoot, "test.dep.consumer", "Dependency Consumer", "1.0.0",
+                "<depends><component id=\"test.dep.core\"/></depends>");
+
+        Path configRoot = tempDir.resolve("project");
+        Files.createDirectories(configRoot);
+        Files.writeString(configRoot.resolve("chibiforge.xcfg"), """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <chibiforgeConfiguration xmlns="http://chibiforge/schema/config"
+                                         toolVersion="1.0.0"
+                                         schemaVersion="1.0">
+                  <components>
+                    <component id="test.dep.consumer" version="1.0.0"/>
+                    <component id="test.dep.core" version="1.0.0"/>
+                  </components>
+                </chibiforgeConfiguration>
+                """);
+
+        GenerationReport report = new GeneratorEngine().generate(
+                new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", false, false),
+                testComponentsRoot);
+
+        List<String> copiedTargets = report.getActions().stream()
+                .filter(action -> action.getType() == GenerationAction.Type.COPY)
+                .map(GenerationAction::getDestination)
+                .toList();
+        assertThat(copiedTargets.get(0)).contains("generated/test_dep_core/core.txt");
+        assertThat(copiedTargets.get(1)).contains("generated/test_dep_consumer/consumer.txt");
+    }
+
+    @Test
+    void hardDependencyCyclesAreRejected(@TempDir Path tempDir) throws Exception {
+        Path testComponentsRoot = tempDir.resolve("components");
+        createTestComponent(testComponentsRoot, "test.dep.a", "Dependency A", "1.0.0",
+                "<depends><component id=\"test.dep.b\"/></depends>");
+        createTestComponent(testComponentsRoot, "test.dep.b", "Dependency B", "1.0.0",
+                "<depends><component id=\"test.dep.a\"/></depends>");
+
+        Path configRoot = tempDir.resolve("project");
+        Files.createDirectories(configRoot);
+        Files.writeString(configRoot.resolve("chibiforge.xcfg"), """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <chibiforgeConfiguration xmlns="http://chibiforge/schema/config"
+                                         toolVersion="1.0.0"
+                                         schemaVersion="1.0">
+                  <components>
+                    <component id="test.dep.a" version="1.0.0"/>
+                    <component id="test.dep.b" version="1.0.0"/>
+                  </components>
+                </chibiforgeConfiguration>
+                """);
+
+        assertThatThrownBy(() -> new GeneratorEngine().generate(
+                new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", false, false),
+                testComponentsRoot))
+                .isInstanceOf(Exception.class)
+                .hasMessageContaining("Hard dependency cycle detected");
+    }
+
+    @Test
+    void hardDependencyVersionMismatchIsRejected(@TempDir Path tempDir) throws Exception {
+        Path testComponentsRoot = tempDir.resolve("components");
+        createTestComponent(testComponentsRoot, "test.dep.core", "Dependency Core", "1.0.0", null);
+        createTestComponent(testComponentsRoot, "test.dep.consumer", "Dependency Consumer", "1.0.0",
+                "<depends><component id=\"test.dep.core\" minVersion=\"2.0.0\"/></depends>");
+
+        Path configRoot = tempDir.resolve("project");
+        Files.createDirectories(configRoot);
+        Files.writeString(configRoot.resolve("chibiforge.xcfg"), """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <chibiforgeConfiguration xmlns="http://chibiforge/schema/config"
+                                         toolVersion="1.0.0"
+                                         schemaVersion="1.0">
+                  <components>
+                    <component id="test.dep.consumer" version="1.0.0"/>
+                    <component id="test.dep.core" version="1.0.0"/>
+                  </components>
+                </chibiforgeConfiguration>
+                """);
+
+        assertThatThrownBy(() -> new GeneratorEngine().generate(
+                new GenerationContext(configRoot.resolve("chibiforge.xcfg"), configRoot, "default", false, false),
+                testComponentsRoot))
+                .isInstanceOf(Exception.class)
+                .hasMessageContaining("requires component 'test.dep.core' version >= '2.0.0'");
+    }
+
+    private static void createTestComponent(Path componentsRoot, String id, String name, String version,
+                                            String dependsXml) throws Exception {
+        Path componentRoot = componentsRoot.resolve(id).resolve("component");
+        Files.createDirectories(componentRoot.resolve("source"));
+        String leafName = id.substring(id.lastIndexOf('.') + 1);
+        Files.writeString(componentRoot.resolve("source").resolve(leafName + ".txt"), leafName);
+        Files.writeString(componentRoot.resolve("schema.xml"), """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <component xmlns="http://chibiforge/schema/component"
+                           id="%s"
+                           name="%s"
+                           version="%s"
+                           hidden="false"
+                           is_platform="false">
+                  <description>Test component.</description>
+                  <resources/>
+                  <categories><category id="Test"/></categories>
+                  <requires/>
+                  %s
+                  <provides/>
+                  <sections/>
+                </component>
+                """.formatted(id, name, version, dependsXml != null ? dependsXml : ""));
     }
 }

@@ -20,6 +20,7 @@ package org.chibios.chibiforge.generator;
 
 import org.chibios.chibiforge.ChibiForgeException;
 import org.chibios.chibiforge.component.ComponentDefinition;
+import org.chibios.chibiforge.component.DependencyDef;
 import org.chibios.chibiforge.config.ChibiForgeConfiguration;
 import org.chibios.chibiforge.config.ComponentConfigEntry;
 import org.chibios.chibiforge.config.ConfigLoader;
@@ -55,6 +56,9 @@ public class GeneratorEngine {
     private final DataModelBuilder dataModelBuilder = new DataModelBuilder();
     private final StaticPayloadCopier staticCopier = new StaticPayloadCopier();
     private final TemplateProcessor templateProcessor = new TemplateProcessor();
+    private record ActiveComponent(ComponentConfigEntry entry, ComponentContainer container,
+                                   ComponentDefinition definition, int originalOrder) {
+    }
 
     public GenerationReport generate(GenerationContext ctx, Path componentsRoot) throws ChibiForgeException {
         return generate(ctx, componentsRoot, null);
@@ -149,9 +153,11 @@ public class GeneratorEngine {
                                                   GenerationReport report) throws ChibiForgeException {
 
         // 4. Load component definitions
-        Map<String, ComponentContainer> activeContainers = new LinkedHashMap<>();
+        Map<String, ActiveComponent> activeComponents = new LinkedHashMap<>();
         List<ComponentDefinition> definitions = new ArrayList<>();
+        List<String> dependencyWarnings = new ArrayList<>();
 
+        int originalOrder = 0;
         for (ComponentConfigEntry entry : config.getComponents()) {
             String compId = entry.getComponentId();
             String compVersion = entry.getComponentVersion();
@@ -171,9 +177,15 @@ public class GeneratorEngine {
                 throw new ChibiForgeException(
                         "Failed to load schema.xml for component '" + compId + "': " + e.getMessage(), e);
             }
-            activeContainers.put(compId, container);
+            activeComponents.put(compId, new ActiveComponent(entry, container, def, originalOrder++));
             definitions.add(def);
             log.info("Loaded component: {} ({})", def.getName(), compId);
+        }
+
+        List<ActiveComponent> orderedComponents = orderActiveComponents(activeComponents, dependencyWarnings);
+        for (String warning : dependencyWarnings) {
+            log.warn(warning);
+            report.addWarning(warning);
         }
 
         // 5. Check feature dependencies
@@ -185,28 +197,23 @@ public class GeneratorEngine {
 
         // 6. Build all configs map for cross-component access
         Map<String, ComponentConfigEntry> allConfigs = new LinkedHashMap<>();
-        for (ComponentConfigEntry entry : config.getComponents()) {
-            allConfigs.put(entry.getComponentId(), entry);
+        for (ActiveComponent active : orderedComponents) {
+            allConfigs.put(active.entry().getComponentId(), active.entry());
         }
 
         Map<String, String> allComponentPaths = new LinkedHashMap<>();
-        for (ComponentConfigEntry entry : config.getComponents()) {
-            allComponentPaths.put(entry.getComponentId(),
-                    "generated/" + IdNormalizer.normalize(entry.getComponentId()) + "/");
+        for (ActiveComponent active : orderedComponents) {
+            allComponentPaths.put(active.entry().getComponentId(),
+                    "generated/" + IdNormalizer.normalize(active.entry().getComponentId()) + "/");
         }
 
         // 7. Process each component
-        for (ComponentConfigEntry entry : config.getComponents()) {
+        for (ActiveComponent active : orderedComponents) {
+            ComponentConfigEntry entry = active.entry();
             String compId = entry.getComponentId();
-            ComponentContainer container = activeContainers.get(compId);
+            ComponentContainer container = active.container();
             ComponentContent content = container.getComponentContent();
-            ComponentDefinition def;
-            try {
-                def = container.loadDefinition();
-            } catch (Exception e) {
-                throw new ChibiForgeException(
-                        "Failed to load definition for component '" + compId + "': " + e.getMessage(), e);
-            }
+            ComponentDefinition def = active.definition();
 
             log.info("Processing component: {}", compId);
 
@@ -252,5 +259,118 @@ public class GeneratorEngine {
         }
 
         return report;
+    }
+
+    private List<ActiveComponent> orderActiveComponents(Map<String, ActiveComponent> activeComponents,
+                                                        List<String> warnings) throws ChibiForgeException {
+        Map<String, Set<String>> outgoing = new LinkedHashMap<>();
+        Map<String, Integer> indegree = new LinkedHashMap<>();
+        for (String componentId : activeComponents.keySet()) {
+            outgoing.put(componentId, new LinkedHashSet<>());
+            indegree.put(componentId, 0);
+        }
+
+        for (ActiveComponent active : activeComponents.values()) {
+            for (DependencyDef dependency : active.definition().getDepends()) {
+                ActiveComponent dependencyTarget = activeComponents.get(dependency.getId());
+                if (dependencyTarget == null) {
+                    throw new ChibiForgeException("Component '" + active.entry().getComponentId()
+                            + "' requires component '" + dependency.getId()
+                            + "', but it is not present in the configuration.");
+                }
+
+                validateDependencyConstraint(active, dependencyTarget, dependency, warnings);
+                if (outgoing.get(dependency.getId()).add(active.entry().getComponentId())) {
+                    indegree.put(active.entry().getComponentId(),
+                            indegree.get(active.entry().getComponentId()) + 1);
+                }
+            }
+        }
+
+        PriorityQueue<ActiveComponent> ready = new PriorityQueue<>(Comparator.comparingInt(ActiveComponent::originalOrder));
+        for (ActiveComponent active : activeComponents.values()) {
+            if (indegree.get(active.entry().getComponentId()) == 0) {
+                ready.add(active);
+            }
+        }
+
+        List<ActiveComponent> ordered = new ArrayList<>();
+        while (!ready.isEmpty()) {
+            ActiveComponent current = ready.poll();
+            ordered.add(current);
+            for (String dependentId : outgoing.get(current.entry().getComponentId())) {
+                int remaining = indegree.get(dependentId) - 1;
+                indegree.put(dependentId, remaining);
+                if (remaining == 0) {
+                    ready.add(activeComponents.get(dependentId));
+                }
+            }
+        }
+
+        if (ordered.size() != activeComponents.size()) {
+            List<String> cycleComponents = indegree.entrySet().stream()
+                    .filter(entry -> entry.getValue() > 0)
+                    .map(Map.Entry::getKey)
+                    .sorted()
+                    .toList();
+            throw new ChibiForgeException("Hard dependency cycle detected among configured components: "
+                    + String.join(", ", cycleComponents));
+        }
+
+        return ordered;
+    }
+
+    private void validateDependencyConstraint(ActiveComponent owner,
+                                              ActiveComponent dependencyTarget,
+                                              DependencyDef dependency,
+                                              List<String> warnings) throws ChibiForgeException {
+        if (dependency.hasExactVersion() && dependency.hasMinVersion()) {
+            warnings.add("Component '" + owner.entry().getComponentId() + "' dependency '"
+                    + dependency.getId() + "' declares both version and minVersion; using exact version '"
+                    + dependency.getVersion() + "'.");
+        }
+
+        String resolvedVersion = dependencyTarget.entry().getComponentVersion();
+        if (dependency.hasExactVersion() && !dependency.getVersion().equals(resolvedVersion)) {
+            throw new ChibiForgeException("Component '" + owner.entry().getComponentId()
+                    + "' requires component '" + dependency.getId() + "' version '"
+                    + dependency.getVersion() + "', but the configuration selects version '"
+                    + resolvedVersion + "'.");
+        }
+        if (!dependency.hasExactVersion() && dependency.hasMinVersion()
+                && compareVersions(resolvedVersion, dependency.getMinVersion()) < 0) {
+            throw new ChibiForgeException("Component '" + owner.entry().getComponentId()
+                    + "' requires component '" + dependency.getId() + "' version >= '"
+                    + dependency.getMinVersion() + "', but the configuration selects version '"
+                    + resolvedVersion + "'.");
+        }
+    }
+
+    private int compareVersions(String left, String right) throws ChibiForgeException {
+        int[] leftParts = parseVersion(left);
+        int[] rightParts = parseVersion(right);
+        for (int i = 0; i < 3; i++) {
+            int cmp = Integer.compare(leftParts[i], rightParts[i]);
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+        return 0;
+    }
+
+    private int[] parseVersion(String version) throws ChibiForgeException {
+        String[] parts = version.split("\\.");
+        if (parts.length != 3) {
+            throw new ChibiForgeException("Invalid semantic version: " + version);
+        }
+        try {
+            return new int[] {
+                    Integer.parseInt(parts[0]),
+                    Integer.parseInt(parts[1]),
+                    Integer.parseInt(parts[2])
+            };
+        } catch (NumberFormatException e) {
+            throw new ChibiForgeException("Invalid semantic version: " + version, e);
+        }
     }
 }
