@@ -160,7 +160,24 @@ Each component has a unique **component ID**.
 
 ---
 
-### 3.4 Component Container
+### 3.4 Payload Component
+
+A **payload component** is a component whose primary role is to provide static files or resources for use by other components.
+
+This is a descriptive term, not a separate component type.
+
+A payload component MAY:
+
+* provide only static payload
+* generate files from templates
+* expose configuration
+* be referenced by dependent components through generator data-model paths
+
+Other components SHOULD depend on payload components using hard component dependencies when their templates or build fragments refer to payload files.
+
+---
+
+### 3.5 Component Container
 
 A **component container** is a distribution unit for a component.
 
@@ -173,7 +190,7 @@ Its structure is defined in the Component Container Specification.
 
 ---
 
-### 3.5 Configuration File
+### 3.6 Configuration File
 
 The configuration file defines:
 
@@ -191,7 +208,7 @@ There is exactly one configuration file per project.
 
 ---
 
-### 3.6 Target
+### 3.7 Target
 
 A **target** is a named configuration variant within a project.
 
@@ -209,7 +226,7 @@ Rules:
 
 ---
 
-### 3.7 Write Policy
+### 3.8 Write Policy
 
 ChibiForge defines two write policies:
 
@@ -220,7 +237,7 @@ ChibiForge defines two write policies:
 
 ---
 
-### 3.8 Scope
+### 3.9 Scope
 
 Outputs are categorized by scope:
 
@@ -231,7 +248,7 @@ Outputs are categorized by scope:
 
 ---
 
-### 3.9 Resource
+### 3.10 Resource
 
 A **resource** is structured data (XML or JSON) declared by a component.
 

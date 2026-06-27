@@ -230,6 +230,7 @@ For hard component dependencies:
 * source-path precedence determines which available container is selected for that component ID
 * non-interactive tools SHALL treat unresolved hard dependencies as errors
 * interactive tools MAY assist the user by auto-adding missing hard dependencies to the configuration
+* generator execution SHALL process hard dependencies before dependent components
 
 If a dependency declares both `version` and `minVersion`:
 

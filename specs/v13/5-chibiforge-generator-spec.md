@@ -45,6 +45,10 @@ Outputs are produced by two mechanisms:
 * static payload
 * templates
 
+Components MAY use either mechanism or both.
+
+A payload component is a normal component whose primary purpose is to place reusable static files under its own generated output root. Other components SHALL refer to those files in place through generator data-model paths rather than by copying them into the consuming component's output tree.
+
 ---
 
 ## 4. Static Payload
@@ -263,17 +267,78 @@ The following child values SHALL be available:
 * `absolute_configuration_path`
 * `component_path`
 * `component_paths`
+* `components`
+* `glob(componentId, pattern)`
 
 Semantics:
 
 * `absolute_configuration_path` is the absolute path of the project/configuration root directory, with a trailing `/`
 * `component_path` is the current component generated-output root relative to project root
 * `component_paths` is the ordered collection of all configured component generated-output roots relative to project root
+* `components` is a mapping of configured component IDs to generation metadata
 * all values in `global` SHALL use `/` as separator and SHALL conventionally terminate directory paths with `/`
 
 ---
 
-### 7.6 Resource Variables
+### 7.6 `global.components`
+
+`global.components` SHALL expose generation metadata for configured components.
+
+Each entry SHALL be keyed by component ID.
+
+Each entry SHALL contain:
+
+* `id`
+* `version`
+* `path`
+
+Semantics:
+
+* `id` is the configured component ID
+* `version` is the exact configured component version
+* `path` is the generated-output root of that component relative to project root, with a trailing `/`
+
+Template authors MAY use this mapping to refer to payload files produced by other configured components.
+
+Example:
+
+```ftl
+${global.components["org.chibios.chibiforge.components.chibios"].path}lib/os/common/file.c
+```
+
+Such references SHOULD be backed by hard component dependencies so that the referenced component is guaranteed to be present.
+
+---
+
+### 7.7 `global.glob(componentId, pattern)`
+
+`global.glob(componentId, pattern)` SHALL return a deterministic sequence of file paths.
+
+Arguments:
+
+* `componentId` identifies a configured component
+* `pattern` is a glob pattern relative to that component's generated-output root
+
+Return value:
+
+* a sequence of project-root-relative generated file paths
+* paths use `/` separators
+* results are sorted deterministically
+* unmatched patterns return an empty sequence
+
+Rules:
+
+* the referenced component MUST be present in the configuration
+* `pattern` MUST NOT be absolute
+* `pattern` MUST NOT contain `..`
+* only files are returned
+* directory matches are ignored
+
+The glob MAY be resolved either from already generated files or from the referenced component container content, provided the returned paths correspond to where those files exist or will exist in the generated project tree.
+
+---
+
+### 7.8 Resource Variables
 
 Each resource declared in the component schema SHALL be exposed as a top-level variable.
 
@@ -286,6 +351,26 @@ Semantics:
 * no `@ref:` expressions SHALL be present
 
 Resources are resolved prior to exposure to the template engine.
+
+---
+
+### 7.9 Resource-Driven Build Metadata
+
+Components MAY use XML resources to describe file sets used by templates.
+
+Example:
+
+```xml
+<files>
+  <glob component="org.chibios.chibiforge.components.chibios"
+        path="lib/os/common/startup/ARMCMx/compilers/GCC/*.c"
+        kind="LIB_C_SRC"/>
+</files>
+```
+
+Templates MAY combine such resource data with `global.components` and `global.glob(...)` to emit build fragments such as `.mk` files.
+
+This pattern is the preferred mechanism for referencing files carried by payload components. The generator SHALL NOT require a separate link or copy manifest for this use case.
 
 ---
 
@@ -355,13 +440,30 @@ The generator SHALL execute:
 3. resolve component definitions
 4. validate hard component dependencies
 5. validate feature dependencies
-6. build resolved component data
-6. for each component:
+6. compute dependency-ordered component execution list
+7. build resolved component data
+8. for each component in dependency order:
 
    * load resources
    * build data model
    * process static payload
    * process templates
+
+---
+
+### 10.1 Component Execution Order
+
+The generator SHALL process configured components in dependency order.
+
+Ordering rules:
+
+* a hard dependency SHALL be processed before any component that depends on it
+* unrelated components SHALL preserve their original order from `chibiforge.xcfg`
+* missing hard dependencies SHALL be errors
+* dependency version mismatches SHALL be errors
+* dependency cycles SHALL be errors
+
+This ordering makes payload component files and build fragments available before dependent component templates are processed.
 
 ---
 

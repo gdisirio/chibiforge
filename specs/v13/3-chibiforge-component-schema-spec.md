@@ -142,6 +142,7 @@ Resources are used:
 
 * by UI tools for `@ref:` resolution
 * by the generator as resolved data (no `@ref:` evaluation at generation time)
+* by templates as static metadata, including file lists or glob declarations for build-fragment generation
 
 ---
 
@@ -197,6 +198,7 @@ Semantics:
 * each dependency targets a component ID
 * the dependency is satisfied only if that component is present in the configuration
 * unlike `<requires>`, this is a hard dependency model
+* templates that refer to another component's payload SHOULD declare that component as a hard dependency
 
 Version semantics:
 

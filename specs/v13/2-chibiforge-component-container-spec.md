@@ -35,6 +35,8 @@ A **component container** is a self-contained unit that provides:
 
 A container SHALL encapsulate everything required for a component to function.
 
+Some components primarily act as **payload components**: they carry reusable static files or resources consumed by other components. This role does not change the container format; payload components use the same static payload, template, and resource mechanisms as any other component.
+
 A container MAY be:
 
 * a filesystem directory
@@ -198,6 +200,7 @@ Reserved directories with defined semantics include:
 * Contains XML or JSON resource files
 * Used by schema and templates
 * Loaded into the data model
+* May describe component-local build metadata, including file lists or glob patterns consumed by templates
 
 ---
 
